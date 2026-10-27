@@ -21,6 +21,16 @@ window.BSB = window.BSB || {};
   var SEL_TOP = 0xffd88a, SEL_SIDE = 0xf6c770;
   var FLOOR_TOP = 0xf3eed8, FLOOR_SIDE = 0xe9e2c8;
   var GAP = 0.2; // metres each shop is pulled in from its outline, leaving thin seams between neighbours
+  // surroundings of a floor both malls share (model.context, tools/3d/kawasan.py): just below the mall floor, so a route
+  // across the plaza lies on it; y = base above the ground, h = height. Not tappable.
+  var CTX = {
+    ground: { y: 0, h: SLAB_H - 0.1, top: 0xe9e7e0, side: 0xdedbd2 },
+    road: { y: SLAB_H - 0.1, h: 0.04, top: 0xbfc2c7, side: 0xb3b6bb },
+    parking: { y: SLAB_H - 0.1, h: 0.06, top: 0xc3dcb4, side: 0xb2cfa2 },
+    divider: { y: SLAB_H - 0.1, h: 0.25, top: 0xaed29b, side: 0x9cc488 },
+    podium: { y: SLAB_H - 0.1, h: 0.45, top: 0xf1eee6, side: 0xe3dfd3 },
+    building: { y: SLAB_H - 0.1, h: 4.0, top: 0xfbfaf7, side: 0xefede7, gap: true }
+  };
   var FONT = '"Plus Jakarta Sans",system-ui,sans-serif';
   var FAC = { toilet: 'Toilet', lift: 'Lift', escalator: 'Eskalator', stairs: 'Tangga', prayer: 'Musholla', atm: 'ATM',
     info: 'Informasi', parking: 'Parkir', firstaid: 'P3K', nursery: 'Ruang laktasi' };
@@ -408,6 +418,7 @@ window.BSB = window.BSB || {};
   S.updateVis = function () {
     var v = this.vis;
     if (this.slabG) this.slabG.visible = v.slab;
+    if (this.ctxG) this.ctxG.visible = v.slab;
     if (this.unitG) this.unitG.visible = v.units;
     if (this.logoG) this.logoG.visible = v.units && v.logos;
     if (this.facG) this.facG.visible = v.fac;
@@ -455,7 +466,7 @@ window.BSB = window.BSB || {};
 
   S.clear = function () {
     if (this.floorG) { this.root.remove(this.floorG); disposeTree(this.floorG); }
-    this.floorG = this.slabG = this.unitG = this.labelG = this.logoG = this.facG = null;
+    this.floorG = this.slabG = this.ctxG = this.unitG = this.labelG = this.logoG = this.facG = null;
     this.meshes = []; this.icons = []; this.hl = null; this.routeG = null;
   };
   // model: floor JSON; edits: {units:{}} or null; links: {unitId: tenantId} (kiosk) -- kept for lookups only
@@ -466,6 +477,17 @@ window.BSB = window.BSB || {};
     if (!model) return;
     this.attachEdits();
     var F = this.floorG = new THREE.Group();
+    this.ctxG = new THREE.Group();
+    (model.context || []).forEach(function (c) {
+      var st = CTX[c.kind];
+      if (!st || !c.poly || c.poly.length < 3) return;
+      try {
+        var m = new THREE.Mesh(extrude(st.gap ? inset(c.poly, GAP) : c.poly, st.h), [new THREE.MeshLambertMaterial({ color: st.top }), new THREE.MeshLambertMaterial({ color: st.side })]);
+        m.position.y = st.y;
+        self.ctxG.add(m);
+      } catch (e) { /* skip bad outline */ }
+    });
+    F.add(this.ctxG);
     this.slabG = new THREE.Group();
     (model.slab || []).forEach(function (sp) {
       try {

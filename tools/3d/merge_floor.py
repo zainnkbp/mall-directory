@@ -66,8 +66,9 @@ def mover(th, t):
     return lambda P: (np.asarray(P, float) @ Rm.T + t)
 
 
-def join(parts, floor_code, frame=None):
-    """parts: [(building, model, model_rel, th, shift)] -> joined model (frame = existing {m_per_unit, origin, artboard})."""
+def join(parts, floor_code, frame=None, keep=None):
+    """parts: [(building, model, model_rel, th, shift)] -> joined model (frame = existing {m_per_unit, origin, artboard});
+    keep: fields of the previous model carried over (the surroundings from kawasan.py)."""
     units, facs, slab, srcs, info = [], [], [], [], []
     for b, B, mrel, th, t in parts:
         f = mover(th, t)
@@ -101,7 +102,7 @@ def join(parts, floor_code, frame=None):
     first = parts[0][1]
     return {"version": 2, "mall": "bsb", "floor": floor_code, "floor_name": first.get("floor_name", floor_code), "level": first.get("level", 0),
             "source_svg": " + ".join(srcs), "m_per_unit": mpu, "origin": origin, "artboard": artboard,
-            "rim": max(p[1].get("rim", 1.2) for p in parts), "slab": slab, "units": units, "facilities": facs, "parts": info}
+            "rim": max(p[1].get("rim", 1.2) for p in parts), "slab": slab, "units": units, "facilities": facs, "parts": info, **(keep or {})}
 
 
 def main():
@@ -126,7 +127,7 @@ def main():
         prev = load(out_rel)
         frame = {k: prev[k] for k in ("m_per_unit", "origin", "artboard")}
         P = [(b, load(p["model"]), p["model"], math.radians(p["rot"]), np.array(p["shift"], float)) for b, p in parts.items()]
-        model = join(P, prev.get("floor"), frame)
+        model = join(P, prev.get("floor"), frame, {k: prev[k] for k in ("context", "context_source") if k in prev})  # same placements: surroundings still fit
         with open(os.path.join(ROOT, out_rel), "w") as f:
             json.dump(model, f, separators=(",", ":"), ensure_ascii=False)
         print(f"{a.floor}: rejoined {', '.join(parts)} -> {out_rel}")
@@ -182,6 +183,8 @@ def main():
 
     floor_code = fits[0][1].get("floor", a.floor.upper())
     model = join(parts, floor_code)
+    if out_rel and os.path.exists(os.path.join(ROOT, out_rel)) and "context" in load(out_rel):
+        print(f"  the surroundings were dropped (new placement): run tools/3d/kawasan.py --floor {a.floor} again")
     out_rel = out_rel or f"data/3d/bsb-{floor_code}.json"
     with open(os.path.join(ROOT, out_rel), "w") as f:
         json.dump(model, f, separators=(",", ":"), ensure_ascii=False)

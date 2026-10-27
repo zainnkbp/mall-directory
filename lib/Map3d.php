@@ -123,6 +123,18 @@ final class Map3d
         $o = [];
         $o[] = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="' . implode(' ', array_map(fn($v) => self::n((float)$v), $vb)) . '"'
             . ' data-plan3d="' . self::esc((string)($model['mall'] ?? '') . '-' . (string)($model['floor'] ?? '')) . '">';
+        // surroundings of a floor both malls share (tools/3d/kawasan.py): land, roads, ruko — under the malls, not clickable
+        if (!empty($model['context'])) {
+            $ctx = ['ground' => ['#ecebe5', 'none', '0'], 'road' => ['#d3d5d9', 'none', '0'], 'parking' => ['#d6e8cb', 'none', '0'],
+                'divider' => ['#bcdcab', 'none', '0'], 'podium' => ['#f2efe8', '#d8d3c6', '.6'], 'building' => ['#fbfaf7', '#c9c3b5', '.6']];
+            $o[] = '<g id="plan3d-context" pointer-events="none">';
+            foreach ($model['context'] as $c) {
+                if (empty($c['poly']) || count($c['poly']) < 3 || !isset($ctx[$c['kind'] ?? ''])) continue;
+                [$fill, $stroke, $sw] = $ctx[$c['kind']];
+                $o[] = '<path d="' . self::pathD($model, $c['poly']) . '" fill="' . $fill . '" stroke="' . $stroke . '" stroke-width="' . $sw . '" stroke-linejoin="round"/>';
+            }
+            $o[] = '</g>';
+        }
         $o[] = '<g id="plan3d-slab" pointer-events="none">';
         foreach ($model['slab'] ?? [] as $sp) {
             if (empty($sp['outer'])) continue;
