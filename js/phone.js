@@ -39,35 +39,50 @@
     $$('[data-i18n]').forEach(function (e) { e.textContent = t(e.dataset.i18n); });
     $('#langBtn').textContent = B.lang === 'id' ? 'EN' : 'ID';
   }
-  function show(id) { ['#scrStart', '#scrNav', '#scrDone', '#scrErr'].forEach(function (s) { $(s).hidden = s !== id; }); window.scrollTo(0, 0); }
-  function fail(msg) { $('#errTxt').textContent = msg; show('#scrErr'); }
+  function show(id) { ['#scrPick', '#scrStart', '#scrNav', '#scrDone', '#scrErr'].forEach(function (s) { $(s).hidden = s !== id; }); window.scrollTo(0, 0); }
+  // no route between two picked points: offer to pick another destination instead of a dead end
+  function fail(msg) { $('#errTxt').textContent = msg; $('#errPick').hidden = !(D && origin); show('#scrErr'); }
 
   try { var sv = localStorage.getItem(NORTH_KEY); if (sv != null && sv !== '') sens.north = +sv; } catch (e) {}
 
   iconize(); applyI18n();
 
+  // Start + destination come from the kiosk QR (k + t), a lobby sticker (from=) or, when missing, from the visitor:
+  // step 1 "where are you" (an entrance = kiosk or CMS lobby point, or a store), step 2 "where to". Choices go into the
+  // URL (from=, t=) so a reload keeps them. selfPick: no kiosk -> the chosen start is the "you are here" point.
+  var LOBBY_TYPES = ['lobby-exit', 'parking-entrance', 'drop-off'];
+  var FAC_TYPES = [['toilet', 'toilet'], ['musholla', 'musholla'], ['atm', 'banknote'], ['lift', 'move-vertical'], ['escalator', 'arrow-up-down']];
+  var selfPick = false, began = false, search = null, pick = { step: 1, tab: 'lobby', rows: [] };
+  function poiTarget(a) { return { id: a.id, name: B.amenityName(a), floor: a.floor, building: a.building, x: a.x, y: a.y, node: a.node, category: null, logo: null, poi: a.kind === 'poi' }; }
+  function amenityById(id) { return D.amenities.filter(function (a) { return a.id === id; })[0]; }
+  function targetById(id) { var am = id && !D.tenantById[id] && amenityById(id); return D.tenantById[id] || (am ? poiTarget(am) : null); }
+  function originById(id) { return id ? (D.kioskById[id] || targetById(id)) : null; }
+  function isEntrance(o) { return !!(o && (D.kioskById[o.id] || (o.poi && LOBBY_TYPES.indexOf((amenityById(o.id) || {}).type) >= 0))); }
+
   B.loadData().then(function (d) {
     D = d; router = new B.Router(D, { status: B.statusData });
-    kiosk = D.kioskById[Q.get('k')];
-    var tid = Q.get('t');
-    target = D.tenantById[tid];
-    if (!target && tid) {
-      var am = D.amenities.filter(function (a) { return a.id === tid; })[0];
-      if (am) target = { id: am.id, name: B.amenityName(am), floor: am.floor, building: am.building, x: am.x, y: am.y, node: am.node, category: null, logo: null };
-    }
-    var fromId = Q.get('from');
-    if (fromId && D.tenantById[fromId]) origin = D.tenantById[fromId];
-    else if (fromId && D.kioskById[fromId]) origin = D.kioskById[fromId];
-    else origin = kiosk;
+    kiosk = D.kioskById[Q.get('k')] || null;
+    selfPick = !kiosk;
+    target = targetById(Q.get('t'));
+    origin = originById(Q.get('from')) || kiosk;
+    if (!origin) return openPick(1);
+    if (!target) return openPick(2);
+    if (kiosk && Q.get('t')) beacon('qr_scan');
+    return begin();
+  }).catch(function (e) { console.error(e); fail(t('error')); });
 
-    if ((!kiosk && !origin) || !target) return fail(t('badLink'));
-    if (!kiosk) kiosk = origin;
-    if (Q.get('k') && Q.get('t')) beacon('qr_scan');
-    mapEl = document.createElement('div'); mapEl.className = 'map-holder';
-    $('#mapStart').appendChild(mapEl);
-    map = new (B.MapView3D || B.MapView)(mapEl, { pad: { l: 30, r: 30, t: 70, b: 30 } });
+  // map + plan for the current origin / target (first time from boot or the picker, again after "change")
+  function begin() {
+    if (selfPick) kiosk = origin;
+    show('#scrStart');
+    if (!map) {
+      mapEl = document.createElement('div'); mapEl.className = 'map-holder';
+      $('#mapStart').appendChild(mapEl);
+      map = new (B.MapView3D || B.MapView)(mapEl, { pad: { l: 30, r: 30, t: 70, b: 30 } });
+    }
+    began = true;
     map.setKiosk(kiosk);
-    if (origin && origin !== kiosk) map.setOrigin(origin);
+    map.setOrigin(origin !== kiosk ? origin : null);
     buildPlan();
     if (!plan.ok) return;
     renderHeader(); renderStart();
@@ -77,7 +92,65 @@
       map.setRoute(L0.floor, L0.pts, { animate: true, duration: 1.4, startMarker: false });
       window.__phoneReady = true;
     });
-  }).catch(function (e) { console.error(e); fail(t('error')); });
+  }
+
+  // ---------------- picker ----------------
+  function openPick(step) {
+    pick.step = step; pick.tab = 'lobby';
+    $('#pickQ').value = '';
+    if (!began) $('#dest').innerHTML = '';
+    show('#scrPick');
+    renderPick();
+  }
+  function floorOrder() { var o = {}, n = 0; D.levels.forEach(function (L) { L.floors.forEach(function (f) { o[f.id] = n++; }); }); return o; }
+  function pickRows() {
+    var q = $('#pickQ').value.trim(), nq = B.norm(q), fo = floorOrder(), rows;
+    if (pick.step === 1 && pick.tab === 'lobby') {
+      rows = D.kiosks.map(function (k) { return { item: k, name: k.name, floor: k.floor, icon: 'door-open' }; });
+      D.amenities.forEach(function (a) {
+        if (a.kind === 'poi' && LOBBY_TYPES.indexOf(a.type) >= 0) rows.push({ item: poiTarget(a), name: B.amenityName(a), floor: a.floor, icon: 'door-open' });
+      });
+      if (nq) rows = rows.filter(function (r) { return B.norm(r.name + ' ' + B.floorLong(D.floorById[r.floor])).indexOf(nq) >= 0; });
+      return rows.sort(function (a, b) { return fo[a.floor] - fo[b.floor] || a.name.localeCompare(b.name); });
+    }
+    if (!search) search = new B.Search(D);
+    var ts = nq ? search.query(q) : D.tenants.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
+    return ts.filter(function (x) { return x.node; }).map(function (x) { return { item: x, name: x.name, floor: x.floor, tenant: x }; });
+  }
+  function renderPick() {
+    var s1 = pick.step === 1;
+    $('#pickStep').textContent = t('step') + ' ' + pick.step + ' ' + t('of') + ' 2';
+    $('#pickTitle').textContent = t(s1 ? 'pickFromTitle' : 'pickToTitle');
+    $('#pickSub').textContent = s1 ? t('pickFromSub') : (origin ? (isEntrance(origin) ? t('fromEntrance') : t('from')) + ' ' + origin.name : t('pickToSub'));
+    $('#pickTabs').hidden = !s1;
+    $$('#pickTabs [data-ptab]').forEach(function (b) { b.classList.toggle('on', b.dataset.ptab === pick.tab); });
+    $('#pickQ').placeholder = t('pickSearchPh');
+    var fac = '';
+    if (!s1) FAC_TYPES.forEach(function (ft) {
+      if (D.amenities.some(function (a) { return a.type === ft[0]; })) fac += '<button type="button" class="pick-fac-btn" data-fac="' + ft[0] + '">' + B.icon(ft[1]) + '<span>' + esc(B.hasT(ft[0]) ? t(ft[0]) : B.amenityTypeName(ft[0])) + '</span></button>';
+    });
+    $('#pickFac').innerHTML = fac ? '<h3 class="ph-sec">' + esc(t('nearestFacility')) + '</h3><div class="pick-fac-row">' + fac + '</div>' : '';
+    pick.rows = pickRows();
+    var h = '', lastF = null;
+    pick.rows.forEach(function (r, i) {
+      if (!r.tenant && r.floor !== lastF) { lastF = r.floor; h += '<li class="fl">' + esc(B.floorLong(D.floorById[r.floor])) + '</li>'; }
+      var ic = r.tenant ? logoHtml(r.tenant) : B.icon(r.icon);
+      h += '<li><button type="button" class="pick-row" data-pi="' + i + '"><span class="logo">' + ic + '</span><span class="pick-row-t"><b>' + esc(B.tidy(r.name)) + '</b>' +
+        (r.tenant ? '<small>' + esc(B.floorLong(D.floorById[r.floor])) + '</small>' : '') + '</span>' + B.icon('chevron-right') + '</button></li>';
+    });
+    $('#pickList').innerHTML = h || '<li class="pick-empty">' + esc(t(s1 && pick.tab === 'lobby' ? 'noLobby' : 'noResults')) + '</li>';
+  }
+  function choose(item) {
+    if (pick.step === 1) origin = item; else target = item;
+    var u = new URL(location.href);
+    if (origin && (selfPick || origin !== kiosk)) u.searchParams.set('from', origin.id);
+    if (target) u.searchParams.set('t', target.id);
+    try { history.replaceState(null, '', u.pathname + u.search); } catch (e) {}
+    if (!target) return openPick(2);
+    var first = !began;
+    begin();
+    if (first && selfPick) beacon('self_start', { from: origin.id, t: target.id });
+  }
 
   function buildPlan() {
     var srcNode = (origin && origin.node) || kiosk.node;
@@ -104,7 +177,7 @@
   }
   function renderHeader() {
     var f = D.floorById[target.floor];
-    if (origin && origin !== kiosk) {
+    if (origin && (selfPick || origin !== kiosk)) {
       var fo = D.floorById[origin.floor];
       $('#dest').innerHTML =
         '<div class="ph-trip">' +
@@ -132,9 +205,11 @@
   }
   function renderStart() {
     if (!plan.ok) return;
-    var fromHtml = (origin && origin !== kiosk)
-      ? (B.icon('map-pin') + t('from') + ' ' + esc(origin.name) + ' (' + esc(D.floorById[origin.floor].short) + ')')
-      : (B.icon('map-pin') + t('fromKiosk') + ' ' + esc(kiosk.name));
+    var fromHtml = B.icon('map-pin') + (origin && origin !== kiosk
+      ? t('from') + ' ' + esc(origin.name) + ' (' + esc(D.floorById[origin.floor].short) + ')'
+      : (selfPick ? (isEntrance(origin) ? t('fromEntrance') : t('from')) : t('fromKiosk')) + ' ' + esc(kiosk.name));
+    var chgHtml = '<div class="pick-chg"><button type="button" data-chg="1">' + B.icon('pencil') + esc(t('changeOrigin')) + '</button>' +
+      '<button type="button" data-chg="2">' + B.icon('pencil') + esc(t('changeDest')) + '</button></div>';
     var noticeHtml = plan.fallbackEscalator ? ('<div class="ph-transit-notice">' + B.icon('info') + '<span>' + esc(t('liftFallbackNotice')) + '</span></div>') : '';
     $('#summary').innerHTML =
       phoneTransitHtml() +
@@ -144,7 +219,7 @@
       '<div class="st"><div class="st-k">' + t('time') + '</div><div class="st-v">' + Math.max(1, Math.round(plan.seconds / 60)) + '<small>' + t('minutes') + '</small></div></div>' +
       '<div class="st"><div class="st-k">' + t('floor') + '</div><div class="st-v">' + esc(D.floorById[plan.legs[0].floor].short) + ' → ' + esc(D.floorById[target.floor].short) + '</div></div>' +
       '</div>' +
-      '<div class="from">' + fromHtml + '</div>';
+      '<div class="from">' + fromHtml + '</div>' + chgHtml;
     $('#stepsStart').innerHTML = stepsHtml();
     $('#stepsNav').innerHTML = stepsHtml();
   }
@@ -419,8 +494,24 @@
     var li = e.target.closest('li[data-i]'); if (!li) return;
     var i = +li.dataset.i, f = flat[i]; ci = i; legM = f.s.kind === 'transition' ? plan.legs[f.li].meters : f.s.startM; enterStep();
   });
+  $('#pickTabs').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ptab]'); if (!b || b.dataset.ptab === pick.tab) return;
+    pick.tab = b.dataset.ptab; $('#pickQ').value = ''; renderPick();
+  });
+  $('#pickQ').addEventListener('input', renderPick);
+  $('#pickList').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-pi]'); if (b) choose(pick.rows[+b.dataset.pi].item);
+  });
+  $('#pickFac').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-fac]'); if (!b) return;
+    var a = router.nearestAmenity(origin.node, b.dataset.fac, accessible && b.dataset.fac !== 'escalator', pref);
+    if (a) choose(poiTarget(a)); else $('#pickSub').textContent = t('noRoute');
+  });
+  $('#summary').addEventListener('click', function (e) { var b = e.target.closest('[data-chg]'); if (b) openPick(+b.dataset.chg); });
+  $('#errPick').addEventListener('click', function () { openPick(2); });
   $('#langBtn').addEventListener('click', function () {
     B.setLang(B.lang === 'id' ? 'en' : 'id'); applyI18n();
+    if (D && !$('#scrPick').hidden) renderPick();
     if (!D || !plan) return;
     var keep = ci, keepM = legM;
     buildPlan(); renderHeader(); renderStart(); if ($('#scrNav').hidden) map.setKiosk(kiosk); map.setDest(target);

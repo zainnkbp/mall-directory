@@ -324,6 +324,67 @@ async function suitePhone() {
   await page.screenshot({ path: OUT + 'phone.png' });
   errorsOk('phone', page, 'phone');
   await page.context().close();
+  await phoneSelfStart();
+}
+// opened without a kiosk QR: the visitor picks the start (entrance / store) and the destination
+async function phoneSelfStart() {
+  const mobile = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+  const ready = p => p.waitForFunction(() => window.__phoneReady, null, { timeout: 60000 }).then(() => true, () => false);
+  const step = (p, n) => p.waitForFunction(n => !document.querySelector('#scrPick').hidden && document.querySelector('#pickStep').textContent.includes(n), String(n), { timeout: 10000 }).then(() => true, () => false);
+  // 1. nothing in the URL -> step 1 with every entrance, then search a destination
+  let page = await newPage(mobile, 'phone-self');
+  await page.goto(BASE + 'm/?lang=id');
+  ok('phone', 'm/ without kiosk opens step 1 (not "invalid link")', await step(page, 1), await page.evaluate(() => document.querySelector('#errTxt').textContent));
+  const nLobby = await page.$$eval('#pickList .pick-row', l => l.length);
+  ok('phone', 'step 1 lists the entrances (kiosks + CMS lobby points)', nLobby >= DIR.kiosks.length, nLobby);
+  await page.screenshot({ path: OUT + 'phone-pick1.png' });
+  await page.click('#pickList .pick-row');
+  ok('phone', 'choosing an entrance opens step 2', await step(page, 2));
+  await page.fill('#pickQ', 'sol'); await sleep(300);
+  const nRes = await page.$$eval('#pickList .pick-row', l => l.length);
+  ok('phone', 'step 2 search "sol" finds stores', nRes > 0, nRes);
+  await page.screenshot({ path: OUT + 'phone-pick2.png' });
+  await page.click('#pickList .pick-row');
+  ok('phone', 'entrance -> store: route ready', await ready(page));
+  const st = await page.evaluate(() => ({ url: location.search, from: (document.querySelector('#summary .from') || {}).textContent || '' }));
+  ok('phone', 'choices kept in the URL (from= & t=)', /from=/.test(st.url) && /[?&]t=/.test(st.url), st.url);
+  ok('phone', 'start shown as an entrance, not "from kiosk"', /pintu masuk/i.test(st.from) && !/kiosk/i.test(st.from), st.from.trim());
+  await page.screenshot({ path: OUT + 'phone-pick3.png' });
+  // 2. "change destination" -> nearest toilet from the same start
+  await page.click('[data-chg="2"]');
+  ok('phone', '"change destination" reopens step 2', await step(page, 2));
+  const fac = await page.$('#pickFac [data-fac="toilet"]');
+  if (fac) {
+    await page.evaluate(() => { window.__phoneReady = false; });
+    await fac.click();
+    ok('phone', 'nearest toilet from the entrance: route ready', await ready(page));
+  }
+  errorsOk('phone', page, 'phone self-start (entrance)');
+  await page.context().close();
+  // 3. a store as the start
+  page = await newPage(mobile, 'phone-self-store');
+  await page.goto(BASE + 'm/?lang=en');
+  await step(page, 1);
+  await page.click('#pickTabs [data-ptab="store"]');
+  await page.fill('#pickQ', 'starbucks'); await sleep(300);
+  const hasStore = await page.$('#pickList .pick-row');
+  ok('phone', '"near a store" tab finds stores', !!hasStore);
+  if (hasStore) {
+    await hasStore.click();
+    await step(page, 2);
+    await page.click('#pickList .pick-row');
+    ok('phone', 'store -> store: route ready', await ready(page));
+    const from = await page.evaluate(() => (document.querySelector('#summary .from') || {}).textContent || '');
+    ok('phone', 'start shown as "From <store>"', /^\s*From /.test(from) && !/kiosk/i.test(from), from.trim());
+  }
+  errorsOk('phone', page, 'phone self-start (store)');
+  await page.context().close();
+  // 4. a lobby sticker (from=<entrance>) skips straight to step 2
+  page = await newPage(mobile, 'phone-sticker');
+  await page.goto(BASE + 'm/?lang=id&from=' + DIR.kiosks[0].id);
+  ok('phone', 'm/?from=<entrance> opens step 2 directly', await step(page, 2));
+  errorsOk('phone', page, 'phone lobby sticker');
+  await page.context().close();
 }
 
 // ------------------------------------------------------------------ cms

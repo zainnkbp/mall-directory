@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#F5F1EB">
   <title>Navigasi · e-Walk & Pentacity</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="../css/base.css?v=3d3">
-  <link rel="stylesheet" href="../css/phone.css?v=3d3">
+  <link rel="stylesheet" href="../css/base.css?v=3d4">
+  <link rel="stylesheet" href="../css/phone.css?v=3d4">
   <script src="../config.js"></script>
 </head>
 <body class="phone">
@@ -16,6 +16,20 @@
       <button class="ph-lang" id="langBtn" type="button">EN</button></div>
     <div class="ph-dest" id="dest"></div>
   </header>
+
+  <!-- PICK (opened without a kiosk QR): 1 = where are you, 2 = where to -->
+  <section class="scr" id="scrPick" hidden>
+    <div class="pick-step" id="pickStep"></div>
+    <h2 class="pick-t" id="pickTitle"></h2>
+    <p class="pick-sub" id="pickSub"></p>
+    <div class="ph-transit-pref pick-tabs" id="pickTabs" role="tablist">
+      <button type="button" class="ph-tp-btn on" data-ptab="lobby"><span data-icon="door-open"></span><span data-i18n="tabLobby"></span></button>
+      <button type="button" class="ph-tp-btn" data-ptab="store"><span data-icon="building-2"></span><span data-i18n="tabNearStore"></span></button>
+    </div>
+    <label class="pick-search"><span data-icon="search"></span><input id="pickQ" type="search" autocomplete="off" enterkeyhint="search"></label>
+    <div class="pick-fac" id="pickFac"></div>
+    <ol class="pick-list" id="pickList"></ol>
+  </section>
 
   <!-- START -->
   <section class="scr" id="scrStart">
@@ -86,12 +100,14 @@
     </div>
   </section>
 
-  <section class="scr" id="scrErr" hidden><div class="done"><h2 id="errTxt"></h2></div></section>
+  <section class="scr" id="scrErr" hidden><div class="done"><h2 id="errTxt"></h2>
+    <button class="pbtn ghost" id="errPick" type="button" hidden data-i18n="changeDest"></button></div></section>
 
   <script src="../assets/vendor/gsap.min.js"></script>
   <script src="../js/icons.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/data.js"></script>
+  <script src="../js/search.js"></script>
   <script src="../js/route.js"></script>
   <script src="../js/map.js"></script>
   <script src="../assets/vendor/three.min.js"></script>
