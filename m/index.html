@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#F5F1EB">
   <title>Navigasi · e-Walk & Pentacity</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="../css/base.css?v=3d4">
-  <link rel="stylesheet" href="../css/phone.css?v=3d4">
+  <link rel="stylesheet" href="../css/base.css?v=3d5">
+  <link rel="stylesheet" href="../css/phone.css?v=3d5">
   <script src="../config.js"></script>
 </head>
 <body class="phone">
@@ -19,6 +19,7 @@
 
   <!-- PICK (opened without a kiosk QR): 1 = where are you, 2 = where to -->
   <section class="scr" id="scrPick" hidden>
+    <button class="pick-back" id="pickBack" type="button" hidden><span data-icon="chevron-left"></span><span data-i18n="back"></span></button>
     <div class="pick-step" id="pickStep"></div>
     <h2 class="pick-t" id="pickTitle"></h2>
     <p class="pick-sub" id="pickSub"></p>
@@ -29,6 +30,16 @@
     <label class="pick-search"><span data-icon="search"></span><input id="pickQ" type="search" autocomplete="off" enterkeyhint="search"></label>
     <div class="pick-fac" id="pickFac"></div>
     <ol class="pick-list" id="pickList"></ol>
+    <!-- preview of a start point: the visitor checks the map + nearby stores before confirming "I'm here" -->
+    <div class="sheet" id="pickSheet" hidden>
+      <div class="sheet-card pv-card" role="dialog" aria-modal="true" aria-labelledby="pvT">
+        <div class="pv-head"><span class="logo" id="pvIc"></span><div class="pv-ht"><div class="fl-k" id="pvK"></div><div class="pv-t" id="pvT"></div></div></div>
+        <div class="mini pv-map" id="pvMap"></div>
+        <p class="pv-near" id="pvNear"></p>
+        <button class="pbtn primary" id="pvYes" type="button"><span data-icon="check"></span><span data-i18n="previewYes"></span></button>
+        <button class="pbtn ghost" id="pvNo" type="button" data-i18n="previewNo"></button>
+      </div>
+    </div>
   </section>
 
   <!-- START -->

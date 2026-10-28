@@ -331,6 +331,23 @@ async function phoneSelfStart() {
   const mobile = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
   const ready = p => p.waitForFunction(() => window.__phoneReady, null, { timeout: 60000 }).then(() => true, () => false);
   const step = (p, n) => p.waitForFunction(n => !document.querySelector('#scrPick').hidden && document.querySelector('#pickStep').textContent.includes(n), String(n), { timeout: 10000 }).then(() => true, () => false);
+  // tapping a start point opens its preview: the spot on a drawn 3D map + nearby stores, then "Yes, I'm here"
+  const confirmPreview = async (p, label) => {
+    const open = await p.waitForSelector('#pickSheet:not([hidden])', { timeout: 10000 }).then(() => true, () => false);
+    await sleep(1500);
+    const st = await p.evaluate(() => {
+      const m = window.__phone.map(), L = m && m.layers[m.floor], out = { floor: m && m.floor, inSheet: !!document.querySelector('#pvMap .map-holder'), drawn: 0, near: document.querySelector('#pvNear').textContent };
+      if (L && L.three) {
+        m._render3d(L);
+        const gl = L.three.renderer.getContext(), px = new Uint8Array(4);
+        for (let i = 1; i < 12; i++) for (let j = 1; j < 12; j++) { gl.readPixels(Math.floor(gl.drawingBufferWidth * i / 12), Math.floor(gl.drawingBufferHeight * j / 12), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); if (px[3]) out.drawn++; }
+      }
+      return out;
+    });
+    ok('phone', label + ': preview shows the spot on the map', open && st.inSheet && st.drawn > 20, JSON.stringify(st));
+    ok('phone', label + ': preview names nearby stores', st.near.length > 5, st.near);
+    await p.click('#pvYes');
+  };
   // 1. nothing in the URL -> step 1 with every entrance, then search a destination
   let page = await newPage(mobile, 'phone-self');
   await page.goto(BASE + 'm/?lang=id');
@@ -339,6 +356,12 @@ async function phoneSelfStart() {
   ok('phone', 'step 1 lists the entrances (kiosks + CMS lobby points)', nLobby >= DIR.kiosks.length, nLobby);
   await page.screenshot({ path: OUT + 'phone-pick1.png' });
   await page.click('#pickList .pick-row');
+  await page.waitForSelector('#pickSheet:not([hidden])', { timeout: 10000 }).catch(() => {});
+  await page.click('#pvNo');
+  ok('phone', '"No, choose another" closes the preview and stays on step 1', await page.evaluate(() => document.querySelector('#pickSheet').hidden) && await step(page, 1));
+  await page.click('#pickList .pick-row');
+  await confirmPreview(page, 'entrance');
+  await page.screenshot({ path: OUT + 'phone-preview.png' });
   ok('phone', 'choosing an entrance opens step 2', await step(page, 2));
   await page.fill('#pickQ', 'sol'); await sleep(300);
   const nRes = await page.$$eval('#pickList .pick-row', l => l.length);
@@ -371,6 +394,7 @@ async function phoneSelfStart() {
   ok('phone', '"near a store" tab finds stores', !!hasStore);
   if (hasStore) {
     await hasStore.click();
+    await confirmPreview(page, 'store');
     await step(page, 2);
     await page.click('#pickList .pick-row');
     ok('phone', 'store -> store: route ready', await ready(page));

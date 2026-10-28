@@ -75,12 +75,9 @@
   function begin() {
     if (selfPick) kiosk = origin;
     show('#scrStart');
-    if (!map) {
-      mapEl = document.createElement('div'); mapEl.className = 'map-holder';
-      $('#mapStart').appendChild(mapEl);
-      map = new (B.MapView3D || B.MapView)(mapEl, { pad: { l: 30, r: 30, t: 70, b: 30 } });
-    }
+    ensureMap($('#mapStart'));
     began = true;
+    map.setConnectors([]);
     map.setKiosk(kiosk);
     map.setOrigin(origin !== kiosk ? origin : null);
     buildPlan();
@@ -93,6 +90,46 @@
       window.__phoneReady = true;
     });
   }
+
+  // one map for the whole page; it moves between the preview sheet, the start screen and the nav screen
+  function ensureMap(parent) {
+    if (!map) {
+      mapEl = document.createElement('div'); mapEl.className = 'map-holder';
+      parent.appendChild(mapEl);
+      map = new (B.MapView3D || B.MapView)(mapEl, { pad: { l: 30, r: 30, t: 70, b: 30 } });
+    } else if (mapEl.parentNode !== parent) parent.appendChild(mapEl);
+  }
+
+  // ---------------- start point preview ----------------
+  // visitors often don't know the entrance's name: show the spot on the map + the closest stores before "I'm here"
+  function nearby(item) {
+    var u = router.m2u(item.floor), out = [];
+    D.tenants.forEach(function (x) {
+      if (x.floor !== item.floor || x.id === item.id || !x.node) return;
+      var m = Math.hypot(x.x - item.x, x.y - item.y) / u;
+      if (m < 45) out.push({ n: x.brand || x.name, m: m });
+    });
+    return out.sort(function (a, b) { return a.m - b.m; }).slice(0, 3).map(function (o) { return o.n; });
+  }
+  function openPreview(item) {
+    pick.preview = item;
+    var tn = D.tenantById[item.id], near = nearby(item), half = 18 * router.m2u(item.floor);
+    $('#pvIc').innerHTML = tn ? logoHtml(tn) : B.icon('door-open');
+    $('#pvK').textContent = B.floorLong(D.floorById[item.floor]);
+    $('#pvT').textContent = B.tidy(item.name);
+    $('#pvNear').innerHTML = near.length ? '<b>' + esc(t('nearby')) + ':</b> ' + near.map(esc).join(' · ') : esc(t('previewHint'));
+    $('#pickSheet').hidden = false;
+    ensureMap($('#pvMap'));
+    map.setRoute(null); map.setDest(null); map.setConnectors([]); map.setOrigin(null);
+    map.setKiosk(item);
+    // 3D floor: ~70 m across the longer side of the sheet's map, spot in the middle. A box would zoom far out on a short
+    // landscape map (the turned, tilted box is much taller on screen than it is wide).
+    map.showFloor(item.floor, { box: [item.x - half, item.y - half, 2 * half, 2 * half], animate: false }).then(function () {
+      var g = map.geo && map.geo(item.floor);
+      if (g && pick.preview === item) map.flyTo({ cx: item.x, cy: item.y, s: Math.min(16, Math.max(map.W, map.H) / 70) * g.k0 }, 0);
+    });
+  }
+  function closePreview() { $('#pickSheet').hidden = true; pick.preview = null; }
 
   // ---------------- picker ----------------
   function openPick(step) {
@@ -119,6 +156,7 @@
   }
   function renderPick() {
     var s1 = pick.step === 1;
+    $('#pickBack').hidden = !began;
     $('#pickStep').textContent = t('step') + ' ' + pick.step + ' ' + t('of') + ' 2';
     $('#pickTitle').textContent = t(s1 ? 'pickFromTitle' : 'pickToTitle');
     $('#pickSub').textContent = s1 ? t('pickFromSub') : (origin ? (isEntrance(origin) ? t('fromEntrance') : t('from')) + ' ' + origin.name : t('pickToSub'));
@@ -488,7 +526,7 @@
   $('#calibBtn').addEventListener('click', openCalib);
   $('#calSave').addEventListener('click', saveCalib);
   $('#calCancel').addEventListener('click', function () { $('#calSheet').hidden = true; });
-  $('#doneBtn').addEventListener('click', function () { show('#scrStart'); $('#mapStart').appendChild(mapEl); map.setKiosk(kiosk); map.setDot(null); });
+  $('#doneBtn').addEventListener('click', function () { show('#scrStart'); ensureMap($('#mapStart')); map.setKiosk(kiosk); map.setDot(null); });
   $('#restartBtn').addEventListener('click', startNav);
   $('#stepsNav').addEventListener('click', function (e) {
     var li = e.target.closest('li[data-i]'); if (!li) return;
@@ -500,8 +538,14 @@
   });
   $('#pickQ').addEventListener('input', renderPick);
   $('#pickList').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-pi]'); if (b) choose(pick.rows[+b.dataset.pi].item);
+    var b = e.target.closest('[data-pi]'); if (!b) return;
+    var it = pick.rows[+b.dataset.pi].item;
+    if (pick.step === 1) openPreview(it); else choose(it);
   });
+  $('#pvYes').addEventListener('click', function () { var it = pick.preview; closePreview(); if (it) choose(it); });
+  $('#pvNo').addEventListener('click', closePreview);
+  $('#pickSheet').addEventListener('click', function (e) { if (e.target === this) closePreview(); });
+  $('#pickBack').addEventListener('click', function () { closePreview(); begin(); });
   $('#pickFac').addEventListener('click', function (e) {
     var b = e.target.closest('[data-fac]'); if (!b) return;
     var a = router.nearestAmenity(origin.node, b.dataset.fac, accessible && b.dataset.fac !== 'escalator', pref);
@@ -511,7 +555,7 @@
   $('#errPick').addEventListener('click', function () { openPick(2); });
   $('#langBtn').addEventListener('click', function () {
     B.setLang(B.lang === 'id' ? 'en' : 'id'); applyI18n();
-    if (D && !$('#scrPick').hidden) renderPick();
+    if (D && !$('#scrPick').hidden) { renderPick(); if (pick.preview) openPreview(pick.preview); return; }
     if (!D || !plan) return;
     var keep = ci, keepM = legM;
     buildPlan(); renderHeader(); renderStart(); if ($('#scrNav').hidden) map.setKiosk(kiosk); map.setDest(target);
@@ -539,5 +583,5 @@
   window.addEventListener('pagehide', function () { if (sens.started && !arrived) { arrived = true; beacon('abandon', { ci: ci }); } });
 
   window.__phone = { state: function () { return { ci: ci, legM: legM, steps: sens.steps, heading: sens.heading, north: sens.north, rot: sens.rot, compass: sens.compass, total: flat.length, kind: cur() && cur().s.kind }; },
-    next: next, setNorth: function (v) { sens.north = v; update(); } };
+    next: next, setNorth: function (v) { sens.north = v; update(); }, map: function () { return map; } };
 })(window.BSB);

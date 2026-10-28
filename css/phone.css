@@ -129,3 +129,30 @@ body.phone { background: var(--bg); min-height: 100%; touch-action: pan-y; paddi
 .pick-chg { display: flex; gap: 8px; flex-wrap: wrap; }
 .pick-chg button { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2); }
 #errPick { margin-top: 18px; }
+.pick-back { display: inline-flex; align-items: center; gap: 4px; height: 36px; margin: -4px 0 8px -6px; padding: 0 8px; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.pick-back[hidden] { display: none; }
+
+/* start point preview (bottom sheet on phones, centred dialog on wider screens) */
+.pv-card { text-align: left; gap: 12px; max-height: 100dvh; overflow-y: auto; }
+.pv-head { display: flex; align-items: center; gap: 12px; }
+.pv-head .logo { width: 48px; height: 48px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); display: grid; place-items: center; overflow: hidden; flex: none; font-size: 22px; color: var(--ink-2); }
+.pv-head .logo img { width: 84%; height: 84%; object-fit: contain; }
+.pv-head .logo .ini { font-weight: 800; font-size: 14px; }
+.pv-ht { min-width: 0; }
+.pv-t { font-size: 21px; font-weight: 800; line-height: 1.2; margin-top: 2px; text-wrap: balance; }
+.pv-map { height: min(44vh, 340px); min-height: 200px; margin-top: 0; }
+.pv-near { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-2); font-weight: 600; text-wrap: pretty; }
+.pv-near b { color: var(--ink); }
+
+/* wider screens (tablet / desktop browser): keep the phone layout readable instead of stretching it */
+@media (min-width: 640px) {
+  .ph-head > *, .scr { max-width: 600px; margin-left: auto; margin-right: auto; }
+  .sheet { align-items: center; justify-content: center; padding: 24px; }
+  .sheet-card { max-width: 520px; border-radius: 28px; padding-bottom: 22px; }
+  .pv-map { height: min(46vh, 380px); }
+}
+/* short landscape phones: smaller map so both buttons stay on screen */
+@media (max-height: 520px) and (orientation: landscape) {
+  .pv-map { height: 46vh; min-height: 150px; }
+  .pv-card .pbtn { height: 48px; }
+}

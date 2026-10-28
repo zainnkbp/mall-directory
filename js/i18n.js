@@ -58,6 +58,8 @@ window.BSB = window.BSB || {};
       pickToTitle: 'Mau ke mana?', pickToSub: 'Cari toko, makanan, atau fasilitas.',
       pickSearchPh: 'Cari toko, makanan, merek…', nearestFacility: 'Fasilitas terdekat',
       fromEntrance: 'Dari pintu masuk', noLobby: 'Belum ada titik lobby.',
+      previewYes: 'Ya, saya di sini', previewNo: 'Bukan, pilih yang lain', nearby: 'Di dekat',
+      previewHint: 'Cocokkan peta dengan sekitar Anda.',
       walkTime: 'jalan kaki', via: 'lewat',
       // CMS runtime (WP-C)
       routeClosed: '{x} sedang ditutup{r}. Rute alternatif tidak tersedia — silakan ke Information Desk.',
@@ -126,6 +128,8 @@ window.BSB = window.BSB || {};
       pickToTitle: 'Where to?', pickToSub: 'Search stores, food or facilities.',
       pickSearchPh: 'Search stores, food, brands…', nearestFacility: 'Nearest facility',
       fromEntrance: 'From entrance', noLobby: 'No lobby points yet.',
+      previewYes: 'Yes, I’m here', previewNo: 'No, choose another', nearby: 'Near',
+      previewHint: 'Compare the map with what you see around you.',
       walkTime: 'walk', via: 'via',
       routeClosed: '{x} is closed{r}. No alternative route is available — please visit the Information Desk.',
       routeDetour: '{x} is closed{r} — this route uses an alternative way.',
