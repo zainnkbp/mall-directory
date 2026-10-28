@@ -88,6 +88,17 @@ def join(parts, floor_code, frame=None, keep=None):
             slab.append({"outer": P(sp["outer"]), "holes": [P(h) for h in sp.get("holes", [])], "building": b})
         srcs.append(B.get("source_svg", ""))
         info.append({"building": b, "model": mrel, "rot": round(math.degrees(th), 4), "shift": [round(float(t[0]), 3), round(float(t[1]), 3)]})
+    if floor_code == "ug":
+        slab.append({
+            "outer": [
+                [-110.20, -1.50],
+                [-90.10, 1.20],
+                [-88.20, -19.50],
+                [-105.50, -22.50]
+            ],
+            "holes": [],
+            "building": "bridge"
+        })
     pts = np.array([p for sp in slab for p in sp["outer"]])
     if frame:
         mpu, origin, artboard = frame["m_per_unit"], frame["origin"], frame["artboard"]

@@ -385,7 +385,7 @@ window.BSB = window.BSB || {};
     var bank = am.replace(/ · .*$/, '');
     if (tr.type === 'crossing') return id ? 'Seberangi jembatan penghubung ke ' + fl : 'Cross the link bridge to ' + fl;
     if (tr.type === 'stairs') {
-      if (tr.fromFloor === tr.toFloor) return id ? 'Lewati tangga outdoor penghubung gedung' : (id ? (tr.dir === 'down' ? 'Turun' : 'Naik') + ' tangga ke ' + fl : 'Take the stairs ' + (tr.dir === 'down' ? 'down' : 'up') + ' to ' + fl);
+      if (tr.fromFloor === tr.toFloor) return id ? 'Lewati tangga outdoor penghubung gedung' : 'Take the outdoor stairs between the buildings';
       return id ? (tr.dir === 'down' ? 'Turun' : 'Naik') + ' tangga ke ' + fl : 'Take the stairs ' + (tr.dir === 'down' ? 'down' : 'up') + ' to ' + fl;
     }
     var lvia = (tr.via && tr.via.length) ? (id ? ' (lewat ' : ' (via ') + tr.via.map(function (f) { return B.floorLabel(self.D.floorById[f]); }).join(', ') + ')' : '';

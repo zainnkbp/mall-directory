@@ -2,13 +2,14 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview 3D Kawasan & Ground Floor — BSB Superblock</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Preview 3D Kawasan & Mall — BSB Superblock</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="assets/vendor/three.min.js"></script>
+  <script src="assets/vendor/OrbitControls.js"></script>
+  <script src="js/scene3d.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -21,12 +22,13 @@
       user-select: none;
       -webkit-font-smoothing: antialiased;
     }
-    #canvas-container {
+    #scene-canvas {
       width: 100%;
       height: 100%;
       position: absolute;
       top: 0;
       left: 0;
+      display: block;
     }
 
     /* Floating Header Card */
@@ -58,16 +60,25 @@
       font-size: 11px;
       font-weight: 700;
       background: #10b981;
-      color: #ffffff;
+      color: #fff;
       padding: 3px 8px;
-      border-radius: 20px;
+      border-radius: 6px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
+    }
+    .badge-engine {
+      font-size: 10.5px;
+      font-weight: 700;
+      background: #3b82f6;
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.02em;
     }
     .hud-sub {
       font-size: 13px;
       color: #64748b;
-      margin-top: 4px;
+      margin-top: 6px;
       line-height: 1.45;
     }
     .hud-stats {
@@ -79,32 +90,31 @@
       border-top: 1px solid rgba(0, 0, 0, 0.06);
     }
     .stat-box {
-      background: #f8fafc;
-      border: 1px solid rgba(0, 0, 0, 0.04);
-      border-radius: 10px;
-      padding: 7px 10px;
-      text-align: center;
+      text-align: left;
     }
     .stat-num {
-      font-size: 17px;
+      font-size: 20px;
       font-weight: 800;
       color: #0f172a;
+      line-height: 1.1;
     }
     .stat-label {
-      font-size: 10.5px;
+      font-size: 11px;
+      color: #94a3b8;
       font-weight: 600;
-      color: #64748b;
-      margin-top: 1px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-top: 2px;
     }
 
-    /* Floating View Controls */
+    /* Floating Controls (Top Right) */
     .hud-controls {
       position: absolute;
       top: 24px;
       right: 28px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       z-index: 10;
       pointer-events: auto;
     }
@@ -130,6 +140,8 @@
       border-radius: 9px;
       cursor: pointer;
       transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      text-align: center;
+      text-decoration: none;
     }
     .btn:hover {
       background: #f1f5f9;
@@ -141,7 +153,7 @@
       box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
     }
 
-    /* Layer Toggles */
+    /* Layer Toggles Card */
     .layer-card {
       background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(16px);
@@ -154,7 +166,7 @@
       gap: 8px;
     }
     .layer-title {
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 700;
       color: #94a3b8;
       text-transform: uppercase;
@@ -164,8 +176,8 @@
     .layer-item {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 12.5px;
+      gap: 9px;
+      font-size: 13px;
       font-weight: 600;
       color: #334155;
       cursor: pointer;
@@ -177,14 +189,15 @@
       cursor: pointer;
     }
     .layer-swatch {
-      width: 11px;
-      height: 11px;
-      border-radius: 3px;
-      border: 1px solid rgba(0, 0, 0, 0.15);
+      width: 13px;
+      height: 13px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      flex-shrink: 0;
     }
 
-    /* Selected Unit Card */
-    .hud-unit-card {
+    /* Bottom Info Card */
+    .unit-card {
       position: absolute;
       bottom: 28px;
       left: 28px;
@@ -199,11 +212,17 @@
       z-index: 10;
       display: none;
       pointer-events: auto;
-      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes slideUp {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
+    }
+    .unit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
     }
     .unit-tag {
       font-size: 11px;
@@ -233,6 +252,32 @@
     .unit-meta span strong {
       color: #1e293b;
     }
+    .unit-logo {
+      width: 52px;
+      height: 52px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      object-fit: contain;
+      background: #fff;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+    .unit-close {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: #f1f5f9;
+      border: none;
+      border-radius: 8px;
+      width: 26px;
+      height: 26px;
+      font-weight: 700;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     /* Hint at bottom */
     .hud-hint {
@@ -255,650 +300,386 @@
   </style>
 </head>
 <body>
-  <div id="canvas-container"></div>
+  <canvas id="scene-canvas"></canvas>
 
   <!-- Header Card -->
   <div class="hud-header">
     <div class="hud-title">
-      Kawasan & Ground Floor
-      <span class="badge-live">BSB Superblock</span>
+      <span id="header-floor-title">Kawasan & Ground Floor</span>
+      <span class="badge-engine">Scene3D Core</span>
     </div>
-    <div class="hud-sub">
-      Model 3D terpadu: Mall E-Walk, Pentacity, 5 Podium Ruko simetris (Blok A–E), Jalan Utama, dan Kavling Pengembangan.
+    <div class="hud-sub" id="header-sub">
+      Render 3D terpadu menggunakan arsitektur Scene3D resmi: Mall E-Walk & Pentacity terhubung dengan kawasan ruko, jalan utama, dan area parkir.
     </div>
     <div class="hud-stats">
       <div class="stat-box">
-        <div class="stat-num" id="stat-ruko">157</div>
-        <div class="stat-label">Ruko Simetris</div>
+        <div class="stat-num" id="stat-tenants">0</div>
+        <div class="stat-label">Toko Mall</div>
       </div>
       <div class="stat-box">
-        <div class="stat-num" id="stat-mall">85</div>
-        <div class="stat-label">Toko Mall GF</div>
+        <div class="stat-num" id="stat-kawasan">0</div>
+        <div class="stat-label">Unit Kawasan</div>
       </div>
       <div class="stat-box">
-        <div class="stat-num" id="stat-kavling">8</div>
-        <div class="stat-label">Kavling Baru</div>
+        <div class="stat-num" id="stat-facilities">0</div>
+        <div class="stat-label">Fasilitas</div>
       </div>
     </div>
   </div>
 
   <!-- Camera & Layers Controls -->
   <div class="hud-controls">
+    <!-- Floor Switcher -->
+    <div class="btn-group">
+      <button class="btn active" id="btn-floor-gf" onclick="switchFloor('gf')">Lantai GF</button>
+      <button class="btn" id="btn-floor-ug" onclick="switchFloor('ug')">Lantai UG</button>
+    </div>
+
+    <!-- Camera Preset Views -->
     <div class="btn-group">
       <button class="btn active" id="view-iso" onclick="setCamera('iso')">Isometrik</button>
       <button class="btn" id="view-top" onclick="setCamera('top')">Tampak Atas</button>
-      <button class="btn" id="view-ruko" onclick="setCamera('ruko')">Fokus Ruko</button>
+      <button class="btn" id="view-kawasan" onclick="setCamera('kawasan')">Fokus Kawasan</button>
       <button class="btn" id="view-mall" onclick="setCamera('mall')">Fokus Mall</button>
     </div>
 
+    <!-- Layer Toggles -->
     <div class="layer-card">
-      <div class="layer-title">Lapisan Peta 3D</div>
+      <div class="layer-title">Lapisan Peta 3D (Scene3D)</div>
       <label class="layer-item">
-        <input type="checkbox" checked onchange="toggleLayer('mall', this.checked)">
-        <span class="layer-swatch" style="background: #f4eedb;"></span>
-        Mall Podium & Tenants
+        <input type="checkbox" id="chk-slab" checked onchange="toggleLayer('slab', this.checked)">
+        <span class="layer-swatch" style="background: #f3eed8;"></span>
+        Mall Podium (Slab)
       </label>
       <label class="layer-item">
-        <input type="checkbox" checked onchange="toggleLayer('ruko', this.checked)">
+        <input type="checkbox" id="chk-units" checked onchange="toggleLayer('units', this.checked)">
         <span class="layer-swatch" style="background: #ffffff; border-color: #cbd5e1;"></span>
-        Ruko Blok A–E (90° Simetris)
+        Toko & Bangunan Tenant
       </label>
       <label class="layer-item">
-        <input type="checkbox" checked onchange="toggleLayer('roads', this.checked)">
-        <span class="layer-swatch" style="background: #3f454d;"></span>
-        Jalan Utama & Pembatas
+        <input type="checkbox" id="chk-ctx" checked onchange="toggleLayer('context', this.checked)">
+        <span class="layer-swatch" style="background: #c86a4b; border-color: #a85235;"></span>
+        Kawasan (Jalan, Ruko, Parkir)
       </label>
       <label class="layer-item">
-        <input type="checkbox" checked onchange="toggleLayer('half', this.checked)">
-        <span class="layer-swatch" style="background: #ded9ce;"></span>
-        Kavling Pengembangan (½ Tinggi)
+        <input type="checkbox" id="chk-names" checked onchange="toggleLayer('names', this.checked)">
+        <span class="layer-swatch" style="background: #1e293b;"></span>
+        Nama & Logo di Atap
+      </label>
+      <label class="layer-item">
+        <input type="checkbox" id="chk-fac" checked onchange="toggleLayer('fac', this.checked)">
+        <span class="layer-swatch" style="background: #2563eb;"></span>
+        Ikon Fasilitas (Lift, Toilet, ATM)
       </label>
       <label class="layer-item" style="margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.06);">
-        <input type="checkbox" onchange="toggleAutoRotate(this.checked)">
+        <input type="checkbox" id="chk-autorotate" onchange="toggleAutoRotate(this.checked)">
         <span>Rotasi Otomatis (Demo)</span>
       </label>
     </div>
   </div>
 
-  <!-- Selected Unit Card -->
-  <div class="hud-unit-card" id="unit-card">
-    <button onclick="closeUnitCard()" style="position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 18px; color: #94a3b8; cursor: pointer; padding: 4px; line-height: 1; transition: color 0.15s;" onmouseover="this.style.color='#1e293b'" onmouseout="this.style.color='#94a3b8'">✕</button>
-    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding-right: 24px;">
-      <img id="unit-logo-img" src="" alt="Logo" style="width: 48px; height: 48px; object-fit: contain; border-radius: 10px; background: #ffffff; padding: 4px; border: 1px solid rgba(0,0,0,0.08); display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+  <!-- Selected Unit Info Card -->
+  <div class="unit-card" id="unit-card">
+    <button class="unit-close" onclick="closeUnitCard()">×</button>
+    <div class="unit-header">
       <div>
-        <div class="unit-tag" id="unit-tag">Ruko Blok A</div>
-        <div class="unit-title" id="unit-title">Ruko Blok A #01</div>
+        <span class="unit-tag" id="unit-tag">MALL TENANT</span>
+        <div class="unit-title" id="unit-title">-</div>
       </div>
+      <img id="unit-logo-img" class="unit-logo" style="display:none;" alt="">
     </div>
     <div class="unit-meta">
-      <span>Kategori: <strong id="unit-cat">Retail</strong></span>
-      <span>Luas: <strong id="unit-area">84.5 m²</strong></span>
-      <span>Gedung: <strong id="unit-bld">Kawasan Ruko BSB</strong></span>
+      <span>Kategori: <strong id="unit-cat">-</strong></span>
+      <span>Luas: <strong id="unit-area">-</strong></span>
+      <span>Lokasi: <strong id="unit-bld">-</strong></span>
     </div>
   </div>
 
-  <!-- Hint -->
   <div class="hud-hint">
-    🖱️ Geser untuk putar 360° · Scroll untuk zoom · Klik bangunan untuk info detail
+    🖱️ Geser untuk putar 360° · Klik kanan untuk geser · Scroll untuk zoom · Klik toko untuk info
   </div>
 
   <script>
-    let scene, camera, renderer, controls;
-    let groups = {
-      ground: new THREE.Group(),
-      roads: new THREE.Group(),
-      traffic: new THREE.Group(),
-      mallSlabs: new THREE.Group(),
-      rukoSlabs: new THREE.Group(),
-      mallUnits: new THREE.Group(),
-      rukoUnits: new THREE.Group(),
-      halfUnits: new THREE.Group(),
-      labels: new THREE.Group(),
-      facilities: new THREE.Group()
-    };
-    let clickableMeshes = [];
-    let raycaster = new THREE.Raycaster();
-    let mouse = new THREE.Vector2();
+    const DEG = Math.PI / 180;
+    const S3 = window.BSB.Scene3D;
 
-    const TONES = {
-      bg: 0xfaf8f5,
-      groundTop: 0xeae7de,      // Master site ground slab
-      groundSide: 0xdcd8ce,
-      mallFloorTop: 0xf4eedb,   // Warm khaki mall corridor floor
-      mallFloorSide: 0xe8e1cc,
-      rukoSlabTop: 0xede8dd,    // Limestone concrete sidewalk for ruko clusters
-      rukoSlabSide: 0xdfd9cc,
-      roadAsphalt: 0x3f454d,    // Smooth sleek charcoal asphalt
-      roadSide: 0x2e333a,
-      dividerGreen: 0x6e7e68,   // Landscaped median curb
-      dividerSide: 0x586653,
-      shopRoof: 0xffffff,       // White clean shop roof
-      shopWallRight: 0xbcbab2,
-      shopWallLeft: 0x9f9d96,
-      anchorRoof: 0x8e8e93,     // Slate anchor roof
-      anchorWall: 0x68686d,
-      rukoRoof: 0xffffff,       // Crisp commercial shophouse roof
-      rukoWall: 0xc8c3b7,       // Modern shophouse wall
-      halfRoof: 0xded9ce,       // Half-height plot architectural travertine
-      halfWall: 0xbeb8aa,
-      lobbyRoof: 0xe0f2fe,
-      lobbyWall: 0x93c5fd
+    let scene3d, renderer, camera, controls;
+    let currentFloor = 'gf';
+    let directoryData = null;
+    let floorsConfig = null;
+    let currentModel = null;
+    let dirty = true;
+    let autoRotate = false;
+    let pointerDownPos = { x: 0, y: 0 };
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const layerState = {
+      slab: true,
+      units: true,
+      context: true,
+      names: true,
+      logos: true,
+      fac: true
     };
 
-    function init() {
-      const container = document.getElementById('canvas-container');
-      const w = window.innerWidth, h = window.innerHeight;
+    async function init() {
+      const canvas = document.getElementById('scene-canvas');
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0xfaf8f5, 1);
 
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(TONES.bg);
-
-      // Camera
-      camera = new THREE.PerspectiveCamera(38, w / h, 1, 4000);
-      camera.position.set(40, 240, 260);
-
-      // Renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(w, h);
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      container.appendChild(renderer.domElement);
-
-      // Controls
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      // Create Orthographic Camera matching Scene3D isometric view
+      const VIEW = 240;
+      camera = new THREE.OrthographicCamera(-VIEW / 2, VIEW / 2, VIEW / 2, -VIEW / 2, 1, 6000);
+      
+      // Initialize OrbitControls
+      controls = new THREE.OrbitControls(camera, canvas);
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
-      controls.maxPolarAngle = Math.PI / 2.05;
-      controls.minDistance = 30;
-      controls.maxDistance = 1000;
-      controls.target.set(40, 0, 0);
+      controls.screenSpacePanning = true;
+      controls.maxPolarAngle = 76 * DEG;
+      controls.minZoom = 0.3;
+      controls.maxZoom = 15;
+      controls.addEventListener('change', () => { dirty = true; });
 
-      // Lighting (Modern Bright Mall Style)
-      scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+      // Instantiate the friend's core Scene3D
+      scene3d = new S3({
+        root: '',
+        aniso: Math.min(8, renderer.capabilities.getMaxAnisotropy()),
+        onChange: () => { dirty = true; }
+      });
 
-      const keyLight = new THREE.DirectionalLight(0xffffff, 0.55);
-      keyLight.position.set(200, 420, 260);
-      keyLight.castShadow = true;
-      keyLight.shadow.mapSize.width = 2048;
-      keyLight.shadow.mapSize.height = 2048;
-      const d = 360;
-      keyLight.shadow.camera.left = -d; keyLight.shadow.camera.right = d;
-      keyLight.shadow.camera.top = d; keyLight.shadow.camera.bottom = -d;
-      keyLight.shadow.camera.near = 50; keyLight.shadow.camera.far = 1200;
-      scene.add(keyLight);
+      // Load config & directory
+      try {
+        const [floorsRes, dirRes] = await Promise.all([
+          fetch('data/3d/floors.json?t=' + Date.now()).then(r => r.json()),
+          fetch('data/directory.json?t=' + Date.now()).then(r => r.json())
+        ]);
+        floorsConfig = floorsRes.floors || {};
+        directoryData = dirRes;
+      } catch (e) {
+        console.warn('Could not load directory snapshot:', e);
+      }
 
-      const fillLight = new THREE.DirectionalLight(0xffffff, 0.25);
-      fillLight.position.set(-200, 260, -200);
-      scene.add(fillLight);
+      // Check query param for floor
+      const urlParams = new URLSearchParams(window.location.search);
+      const requestedFloor = urlParams.get('floor');
+      await loadFloor(requestedFloor === 'ug' ? 'ug' : 'gf');
 
-      Object.values(groups).forEach(g => scene.add(g));
-
-      loadModel();
-
+      // Setup pointer events
       window.addEventListener('resize', onWindowResize);
-      renderer.domElement.addEventListener('pointerdown', onPointerDown);
-      renderer.domElement.addEventListener('pointerup', onPointerUp);
-      renderer.domElement.addEventListener('pointermove', onPointerMove);
+      canvas.addEventListener('pointerdown', onPointerDown);
+      canvas.addEventListener('pointerup', onPointerUp);
 
       animate();
     }
 
-    function insetPoly(poly, d) {
-      const n = poly.length;
-      if (n < 3 || !d) return poly;
-      let area = 0;
-      for (let i = 0; i < n; i++) {
-        const a = poly[i], b = poly[(i + 1) % n];
-        area += a[0] * b[1] - b[0] * a[1];
-      }
-      const sgn = area > 0 ? 1 : -1;
-      function nrm(a, b) {
-        const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
-        return [-dy / l * sgn, dx / l * sgn];
-      }
-      return poly.map((p, i) => {
-        const n1 = nrm(poly[(i - 1 + n) % n], p), n2 = nrm(p, poly[(i + 1) % n]);
-        const mx = n1[0] + n2[0], my = n1[1] + n2[1], ml = Math.hypot(mx, my) || 1;
-        const len = d / Math.max(0.35, (mx * n1[0] + my * n1[1]) / ml);
-        return [p[0] + (mx / ml) * len, p[1] + (my / ml) * len];
-      });
-    }
+    async function loadFloor(floorId) {
+      currentFloor = floorId;
+      closeUnitCard();
 
-    function createExtrusion(poly, height, topColor, sideColor, bevel = false) {
-      const shape = new THREE.Shape();
-      poly.forEach((p, i) => {
-        if (i === 0) shape.moveTo(p[0], -p[1]);
-        else shape.lineTo(p[0], -p[1]);
-      });
+      // Update switcher active state
+      document.getElementById('btn-floor-gf').classList.toggle('active', floorId === 'gf');
+      document.getElementById('btn-floor-ug').classList.toggle('active', floorId === 'ug');
 
-      const geom = new THREE.ExtrudeGeometry(shape, {
-        depth: height,
-        bevelEnabled: bevel,
-        bevelSegments: 1,
-        bevelSize: 0.1,
-        bevelThickness: 0.1
-      });
-      geom.rotateX(-Math.PI / 2);
+      const floorEntry = floorsConfig ? floorsConfig[floorId] : null;
+      const modelPath = floorEntry ? floorEntry.model : (floorId === 'ug' ? 'data/3d/bsb-UG.json' : 'data/3d/bsb-GF.json');
+      const editsPath = floorEntry ? floorEntry.edits : null;
 
-      const topMat = new THREE.MeshLambertMaterial({ color: topColor });
-      const sideMat = new THREE.MeshLambertMaterial({ color: sideColor });
-
-      const mesh = new THREE.Mesh(geom, [topMat, sideMat]);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      return mesh;
-    }
-
-    function createRoofLabel(text, w, h, isDark, angle) {
-      const cv = document.createElement('canvas');
-      cv.width = 512; cv.height = 256;
-      const ctx = cv.getContext('2d');
-      ctx.font = '700 46px "Plus Jakarta Sans", system-ui, sans-serif';
-      ctx.fillStyle = isDark ? '#ffffff' : '#2b2d31';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      
-      const words = text.split(' ');
-      if (words.length > 2 && text.length > 14) {
-        const mid = Math.ceil(words.length / 2);
-        ctx.fillText(words.slice(0, mid).join(' '), 256, 100);
-        ctx.fillText(words.slice(mid).join(' '), 256, 160);
-      } else {
-        ctx.fillText(text, 256, 128);
-      }
-      
-      const tex = new THREE.CanvasTexture(cv);
-      tex.anisotropy = 4;
-      const geom = new THREE.PlaneGeometry(Math.max(4.0, (w || 6) * 0.85), Math.max(2.4, (h || 3.5) * 0.75));
-      geom.rotateX(-Math.PI / 2);
-      const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
-      const m = new THREE.Mesh(geom, mat);
-      m.rotation.y = -(angle || 0) * (Math.PI / 180);
-      m.renderOrder = 3;
-      return m;
-    }
-
-    function createTrafficArrow(a) {
-      const cv = document.createElement('canvas');
-      cv.width = 256; cv.height = 512;
-      const ctx = cv.getContext('2d');
-
-      const isOut = (a.type === 'out');
-      const arrowColor = isOut ? 'rgba(239, 68, 68, 0.95)' : 'rgba(16, 185, 129, 0.95)';
-      const textLabel = isOut ? 'KELUAR' : 'MASUK';
-
-      // Subtle drop shadow / soft border for realistic road marking
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-      ctx.shadowBlur = 10;
-      ctx.shadowOffsetY = 3;
-
-      // Crisp colored directional road chevron
-      ctx.fillStyle = arrowColor;
-      ctx.beginPath();
-      // Arrowhead
-      ctx.moveTo(128, 25);
-      ctx.lineTo(225, 160);
-      ctx.lineTo(170, 160);
-      ctx.lineTo(170, 320);
-      ctx.lineTo(86, 320);
-      ctx.lineTo(86, 160);
-      ctx.lineTo(31, 160);
-      ctx.closePath();
-      ctx.fill();
-
-      // Reset shadow for crisp text
-      ctx.shadowColor = 'transparent';
-
-      // Crisp label badge background & text
-      ctx.fillStyle = arrowColor;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(24, 380, 208, 60, 12);
-      } else {
-        ctx.rect(24, 380, 208, 60);
-      }
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '800 36px "Plus Jakarta Sans", system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(textLabel, 128, 410);
-
-      const tex = new THREE.CanvasTexture(cv);
-      tex.anisotropy = 4;
-      const geom = new THREE.PlaneGeometry(3.6, 7.2);
-      geom.rotateX(-Math.PI / 2);
-      const mat = new THREE.MeshBasicMaterial({
-        map: tex,
-        transparent: true,
-        depthWrite: false
-      });
-      const mesh = new THREE.Mesh(geom, mat);
-      // Road asphalt surface is at Y = 0.07 + 0.08 = 0.15m. Position arrow at 0.155m to rest flush on top!
-      mesh.position.set(a.x, 0.155, a.z);
-      mesh.rotation.y = -(a.angle || 0) * (Math.PI / 180);
-      mesh.renderOrder = 4;
-      return mesh;
-    }
-
-    function createFacilityBadge(type) {
-      const cv = document.createElement('canvas');
-      cv.width = cv.height = 128;
-      const ctx = cv.getContext('2d');
-      ctx.fillStyle = '#1e2226';
-      ctx.beginPath();
-      ctx.arc(64, 64, 52, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = '#ffffff';
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 6;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      if (type === 'escalator') {
-        ctx.beginPath();
-        ctx.moveTo(34, 88); ctx.lineTo(52, 88); ctx.lineTo(76, 44); ctx.lineTo(94, 44);
-        ctx.stroke();
-        ctx.beginPath(); ctx.arc(58, 38, 7, 0, Math.PI * 2); ctx.fill();
-      } else if (type === 'lift') {
-        ctx.strokeRect(40, 36, 48, 56);
-        ctx.beginPath(); ctx.moveTo(64, 46); ctx.lineTo(74, 60); ctx.lineTo(54, 60); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(54, 68); ctx.lineTo(74, 68); ctx.lineTo(64, 82); ctx.closePath(); ctx.fill();
-      } else {
-        ctx.beginPath(); ctx.arc(48, 44, 7, 0, Math.PI * 2); ctx.arc(80, 44, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.fillRect(42, 54, 12, 32); ctx.fillRect(74, 54, 12, 32);
-      }
-
-      const tex = new THREE.CanvasTexture(cv);
-      const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
-      const sprite = new THREE.Sprite(mat);
-      sprite.scale.set(7, 7, 1);
-      return sprite;
-    }
-
-    async function loadModel() {
       try {
-        const res = await fetch('data/3d/preview-kawasan-GF.json');
-        const data = await res.json();
-        const origin = data.origin;
-        const scale = data.m_per_unit;
+        const [model, edits] = await Promise.all([
+          fetch(modelPath + '?t=' + Date.now()).then(r => r.json()),
+          editsPath ? fetch(editsPath + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null) : null
+        ]);
 
-        function toWorld(pts) {
-          return pts.map(p => [(p[0] - origin[0]) * scale, (p[1] - origin[1]) * scale]);
-        }
+        currentModel = model;
 
-        // 1. MASTER SITE GROUND SLAB (Y = 0.0)
-        if (data.ground_slabs) {
-          data.ground_slabs.forEach(s => {
-            const wPoly = toWorld(s.poly);
-            const mesh = createExtrusion(wPoly, 0.06, TONES.groundTop, TONES.groundSide);
-            mesh.position.y = 0.0;
-            groups.ground.add(mesh);
-          });
-        }
+        // Apply tenant data from CMS directory snapshot
+        decorateModelFromCms(model, floorId);
 
-        // 2. ROADS & MEDIAN DIVIDERS (Y = 0.07 to 0.18)
-        data.roads.forEach(r => {
-          const wPoly = toWorld(r.poly);
-          const isDivider = r.kind === 'divider';
-          const h = isDivider ? 0.16 : 0.08;
-          const topCol = isDivider ? TONES.dividerGreen : TONES.roadAsphalt;
-          const sideCol = isDivider ? TONES.dividerSide : TONES.roadSide;
-          const mesh = createExtrusion(wPoly, h, topCol, sideCol);
-          mesh.position.y = isDivider ? 0.16 : 0.07;
-          groups.roads.add(mesh);
-        });
+        // Set camera angle from config
+        const defaultPolar = floorId === 'ug' ? 53.5 : 48.0;
+        const viewConfig = {
+          azimuth: (floorEntry && floorEntry.view && floorEntry.view.azimuth) != null ? floorEntry.view.azimuth : (floorId === 'ug' ? -68.5 : -56.0),
+          polar: defaultPolar
+        };
+        scene3d.setBase(viewConfig.azimuth, viewConfig.polar);
 
-        // 3. RUKO SLABS & SIDEWALK PODIUMS (5 Podiums Blok A–E at Y=0.1, Sidewalk curbs at Y=0.08)
-        data.ruko_slabs.forEach(s => {
-          const wPoly = toWorld(s.poly);
-          const isSidewalk = s.id && s.id.startsWith('sidewalk');
-          const h = isSidewalk ? 0.20 : 0.5;
-          const topCol = isSidewalk ? 0xe6e2d8 : TONES.rukoSlabTop;
-          const sideCol = isSidewalk ? 0xd8d3c7 : TONES.rukoSlabSide;
-          const mesh = createExtrusion(wPoly, h, topCol, sideCol);
-          mesh.position.y = isSidewalk ? 0.08 : 0.1;
-          groups.rukoSlabs.add(mesh);
-        });
+        // Build 3D scene using the core Scene3D
+        scene3d.build(model, edits || { units: {} }, floorEntry ? floorEntry.tenants : {});
 
-        // 4. MALL SLABS (Podium E-Walk & Pentacity, Live Standard SLAB_H = 1.2m)
-        data.mall_slabs.forEach(s => {
-          const wPoly = toWorld(s.poly);
-          const mesh = createExtrusion(wPoly, 1.2, TONES.mallFloorTop, TONES.mallFloorSide, true);
-          mesh.position.y = 0.0;
-          groups.mallSlabs.add(mesh);
-        });
+        // Update layer visibilities
+        applyLayers();
 
-        // 5. UNITS (MALL SHOPS, RUKO SHOPS & HALF-HEIGHT PLOTS)
-        data.units.forEach(u => {
-          const wPoly = toWorld(u.poly);
-          const isRuko = u.kind === 'ruko';
-          const isAnchor = u.kind === 'anchor';
-          const isLobby = u.kind === 'lobby';
-          const isKiosk = u.kind === 'kiosk';
-          const isHalf = u.is_half || u.kind === 'future_plot';
+        // Update HUD stats
+        updateHudStats(model, floorId);
 
-          // Apply INSET SEAM GAP (0.2m for mall shops, 0.15m for ruko Blok A-E, 0 for Ruko Selatan)
-          const isRukoSelatan = (u.block === 'Ruko Selatan');
-          const inPoly = isRukoSelatan ? wPoly : insetPoly(wPoly, isHalf ? 0.08 : (isRuko ? 0.15 : 0.2));
+        // Fit camera to scene
+        fitView(viewConfig.azimuth, viewConfig.polar);
 
-          let h = 4.5;
-          let slabY = 1.2;
-          let topColor = TONES.shopRoof;
-          let sideColor = TONES.shopWallRight;
-
-          if (isHalf) {
-            h = 1.8;
-            slabY = 0.6;
-            topColor = TONES.halfRoof;
-            sideColor = TONES.halfWall;
-          } else if (isRuko) {
-            h = isRukoSelatan ? 5.0 : 5.5;          // Shophouses
-            slabY = isRukoSelatan ? 0.08 : 0.6;     // Southern rukos sit on ground; Blok A-E on their podium
-            topColor = TONES.rukoRoof;
-            sideColor = TONES.rukoWall;
-          } else if (isAnchor) {
-            h = 4.5;          // Live mall standard height
-            slabY = 1.2;
-            topColor = TONES.anchorRoof;
-            sideColor = TONES.anchorWall;
-          } else if (isKiosk) {
-            h = 2.2;          // Live mall standard height for kiosks
-            slabY = 1.2;
-            topColor = TONES.shopRoof;
-            sideColor = TONES.shopWallLeft;
-          } else if (isLobby) {
-            h = 4.5;
-            slabY = 1.2;
-            topColor = TONES.lobbyRoof;
-            sideColor = TONES.lobbyWall;
-          } else {
-            // Standard Mall Retail Tenant (Live Standard HEIGHT = 4.5m)
-            h = 4.5;
-            slabY = 1.2;
-            topColor = TONES.shopRoof;
-            sideColor = TONES.shopWallRight;
-          }
-
-          const mesh = createExtrusion(inPoly, h, topColor, sideColor);
-          mesh.position.y = slabY;
-          mesh.userData = u;
-
-          // 3D Logo on Roof or clean Plus Jakarta Sans Text (Rotated matching Live Mall corridors)
-          if (!isHalf && u.name && !u.name.toLowerCase().includes('toko') && !u.name.startsWith('Ruko ')) {
-            const wx = (u.label && u.label.x !== undefined) ? u.label.x : (u.box[0] - origin[0]) * scale;
-            const wz = (u.label && u.label.y !== undefined) ? u.label.y : (u.box[1] - origin[1]) * scale;
-            const ang = (u.label && u.label.angle !== undefined) ? u.label.angle : 0;
-            const lw = (u.label && u.label.w) ? u.label.w : Math.sqrt(u.area || 50);
-            const lh = (u.label && u.label.h) ? u.label.h : lw * 0.5;
-
-            if (u.logo_3d) {
-              const texLoader = new THREE.TextureLoader();
-              texLoader.load(u.logo_3d, function (tex) {
-                tex.anisotropy = 4;
-                const aspect = (lw / Math.max(1, lh)) || 1.8;
-                const geom = new THREE.PlaneGeometry(Math.max(4.2, lw * 0.85), Math.max(2.4, lw * 0.85 / aspect));
-                geom.rotateX(-Math.PI / 2);
-                const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
-                const logoMesh = new THREE.Mesh(geom, mat);
-                logoMesh.position.set(wx, slabY + h + 0.04, wz);
-                logoMesh.rotation.y = -ang * (Math.PI / 180);
-                logoMesh.renderOrder = 3;
-                groups.labels.add(logoMesh);
-              }, undefined, function() {
-                const labelMesh = createRoofLabel(u.name, lw, lh, isAnchor, ang);
-                labelMesh.position.set(wx, slabY + h + 0.04, wz);
-                groups.labels.add(labelMesh);
-              });
-            } else {
-              const labelMesh = createRoofLabel(u.name, lw, lh, isAnchor, ang);
-              labelMesh.position.set(wx, slabY + h + 0.04, wz);
-              groups.labels.add(labelMesh);
-            }
-          }
-
-          if (isHalf) {
-            groups.halfUnits.add(mesh);
-          } else if (isRuko) {
-            groups.rukoUnits.add(mesh);
-          } else {
-            groups.mallUnits.add(mesh);
-          }
-          clickableMeshes.push(mesh);
-        });
-
-        // 6. TRAFFIC ARROWS (Subtle Non-Intrusive 1-Way Lane Markings)
-        if (data.traffic_arrows) {
-          data.traffic_arrows.forEach(a => {
-            const arrowMesh = createTrafficArrow(a);
-            groups.traffic.add(arrowMesh);
-          });
-        }
-
-        // 7. FACILITIES (Escalators, Lifts, Restrooms)
-        data.facilities.forEach(f => {
-          const badge = createFacilityBadge(f.type);
-          const wx = (f.p[0] - origin[0]) * scale;
-          const wz = (f.p[1] - origin[1]) * scale;
-          badge.position.set(wx, 7.5, wz);
-          groups.facilities.add(badge);
-        });
-
-        // Update Stats in HUD
-        document.getElementById('stat-ruko').textContent = data.counts.ruko_units;
-        document.getElementById('stat-mall').textContent = data.counts.mall_tenants;
-        document.getElementById('stat-kavling').textContent = data.counts.future_half_units;
-
-        console.log('3D Kawasan Loaded successfully!');
+        dirty = true;
       } catch (err) {
-        console.error('Failed to load 3D model:', err);
+        console.error('Failed to load 3D floor model:', err);
       }
     }
 
-    function toggleLayer(layer, visible) {
-      if (layer === 'mall') {
-        groups.mallSlabs.visible = visible;
-        groups.mallUnits.visible = visible;
-        groups.labels.visible = visible;
-        groups.facilities.visible = visible;
-      } else if (layer === 'ruko') {
-        groups.rukoSlabs.visible = visible;
-        groups.rukoUnits.visible = visible;
-      } else if (layer === 'half') {
-        groups.halfUnits.visible = visible;
-      } else if (layer === 'roads') {
-        groups.roads.visible = visible;
-        groups.ground.visible = visible;
-      } else if (layer === 'traffic') {
-        groups.traffic.visible = visible;
+    function decorateModelFromCms(model, floorId) {
+      if (!directoryData || !directoryData.tenants) return;
+      const tenantsByUnitShape = {};
+      directoryData.tenants.forEach(t => {
+        if (t.floor === floorId && t.unitShape) {
+          tenantsByUnitShape[t.unitShape] = t;
+        }
+      });
+
+      (model.units || []).forEach(u => {
+        const t = tenantsByUnitShape[u.id];
+        if (t) {
+          u.display = (t.brand && t.name && t.name.startsWith(t.brand + ' · ')) ? t.brand : (t.name || t.brand);
+          u.logoCms = t.logo || null;
+          u.category = t.category || null;
+          u.unitNumber = t.unit || null;
+        }
+      });
+    }
+
+    function updateHudStats(model, floorId) {
+      const headerTitle = document.getElementById('header-floor-title');
+      const headerSub = document.getElementById('header-sub');
+      const statTenants = document.getElementById('stat-tenants');
+      const statKawasan = document.getElementById('stat-kawasan');
+      const statFacilities = document.getElementById('stat-facilities');
+
+      const isUG = floorId === 'ug';
+      headerTitle.textContent = isUG ? 'Kawasan & Upper Ground (UG)' : 'Kawasan & Ground Floor (GF)';
+      headerSub.textContent = isUG
+        ? 'Model 3D terpadu lantai UG: Mall E-Walk & Pentacity terhubung dengan gedung kawasan, jalan utama, dan area parkir.'
+        : 'Model 3D terpadu lantai GF: Mall E-Walk & Pentacity terhubung dengan 5 podium ruko Blok A–E, jalan utama, dan area parkir.';
+
+      const tenantCount = (model.units || []).filter(u => u.label && (u.display || u.name)).length || (model.units || []).length;
+      const contextCount = (model.context || []).length;
+      const facilitiesCount = (model.facilities || []).length;
+
+      statTenants.textContent = tenantCount;
+      statKawasan.textContent = contextCount;
+      statFacilities.textContent = facilitiesCount;
+    }
+
+    function switchFloor(fid) {
+      if (fid === currentFloor) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('floor', fid);
+      window.history.pushState({}, '', url);
+      loadFloor(fid);
+    }
+
+    function applyLayers() {
+      if (!scene3d) return;
+      scene3d.setVisible({
+        slab: layerState.slab,
+        units: layerState.units,
+        names: layerState.names,
+        logos: layerState.logos,
+        fac: layerState.fac
+      });
+      if (scene3d.ctxG) {
+        scene3d.ctxG.visible = layerState.context;
+      }
+      dirty = true;
+    }
+
+    function toggleLayer(layerKey, isChecked) {
+      layerState[layerKey] = isChecked;
+      if (layerKey === 'names') {
+        layerState.logos = isChecked;
+      }
+      applyLayers();
+    }
+
+    function toggleAutoRotate(val) {
+      autoRotate = val;
+      controls.autoRotate = val;
+      controls.autoRotateSpeed = 1.6;
+    }
+
+    function setCamera(mode) {
+      document.querySelectorAll('.btn-group button').forEach(b => {
+        if (b.id.startsWith('view-')) b.classList.remove('active');
+      });
+      const activeBtn = document.getElementById(`view-${mode}`);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const floorEntry = floorsConfig ? floorsConfig[currentFloor] : null;
+      const defaultView = {
+        azimuth: (floorEntry && floorEntry.view && floorEntry.view.azimuth) != null ? floorEntry.view.azimuth : (currentFloor === 'ug' ? -68.5 : -56.0),
+        polar: currentFloor === 'ug' ? 53.5 : 48.0
+      };
+
+      if (mode === 'iso') {
+        fitView(defaultView.azimuth, defaultView.polar);
+      } else if (mode === 'top') {
+        fitView(defaultView.azimuth, 0.5);
+      } else if (mode === 'kawasan') {
+        // Focus on the surrounding kawasan area
+        fitTarget(new THREE.Vector3(20, 0, -40), 1.3, defaultView.azimuth, 48);
+      } else if (mode === 'mall') {
+        // Focus on mall center
+        fitTarget(new THREE.Vector3(-30, 0, 10), 1.9, defaultView.azimuth, defaultView.polar);
       }
     }
 
-    function toggleAutoRotate(enabled) {
-      controls.autoRotate = enabled;
-      controls.autoRotateSpeed = 0.6;
-    }
+    function fitView(az, polar) {
+      const azRad = az * DEG;
+      const polRad = polar * DEG;
+      const dist = 1500;
 
-    function setCamera(type) {
-      document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
-      document.getElementById('view-' + type)?.classList.add('active');
-
-      if (type === 'iso') {
-        gsapCamera(35, 220, 240, 35, 0, 0);
-      } else if (type === 'top') {
-        gsapCamera(35, 340, 0.1, 35, 0, 0);
-      } else if (type === 'ruko') {
-        gsapCamera(51, 75, 45, 51, 0, -25);
-      } else if (type === 'mall') {
-        gsapCamera(30, 90, 95, 30, 0, 22);
+      const pts = [];
+      if (currentModel) {
+        (currentModel.slab || []).forEach(s => (s.outer || []).forEach(p => pts.push(p)));
+        (currentModel.context || []).forEach(c => (c.poly || []).forEach(p => pts.push(p)));
       }
-    }
 
-    function gsapCamera(x, y, z, tx, ty, tz) {
-      const dur = 35;
-      let step = 0;
-      const startP = camera.position.clone();
-      const startT = controls.target.clone();
-      const endP = new THREE.Vector3(x, y, z);
-      const endT = new THREE.Vector3(tx, ty, tz);
+      let center = new THREE.Vector3(0, 0, 0);
+      let zoom = currentFloor === 'ug' ? 0.65 : 0.75;
 
-      function anim() {
-        step++;
-        const prog = step / dur;
-        const ease = 0.5 - Math.cos(prog * Math.PI) / 2;
-        camera.position.lerpVectors(startP, endP, ease);
-        controls.target.lerpVectors(startT, endT, ease);
-        controls.update();
-        if (step < dur) requestAnimationFrame(anim);
-      }
-      anim();
-    }
-
-    let pointerDownPos = { x: 0, y: 0 };
-    let selectedMesh = null;
-    let originalMaterials = null;
-    const SEL_TOP = 0xffd88a;
-    const SEL_SIDE = 0xf6c770;
-
-    function selectMesh(mesh) {
-      if (selectedMesh && originalMaterials) {
-        if (Array.isArray(selectedMesh.material)) {
-          selectedMesh.material[0].color.setHex(originalMaterials.top);
-          selectedMesh.material[1].color.setHex(originalMaterials.side);
-        } else if (selectedMesh.material.color) {
-          selectedMesh.material.color.setHex(originalMaterials.top);
+      if (pts.length > 0) {
+        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+        pts.forEach(p => {
+          if (p[0] < minX) minX = p[0];
+          if (p[0] > maxX) maxX = p[0];
+          if (p[1] < minZ) minZ = p[1];
+          if (p[1] > maxZ) maxZ = p[1];
+        });
+        center.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+        const maxSpan = Math.max(maxX - minX, maxZ - minZ);
+        if (maxSpan > 0) {
+          zoom = Math.min(1.8, Math.max(0.4, 210 / maxSpan));
         }
       }
-      selectedMesh = mesh;
-      if (!mesh) {
-        originalMaterials = null;
-        return;
-      }
-      if (Array.isArray(mesh.material)) {
-        originalMaterials = {
-          top: mesh.material[0].color.getHex(),
-          side: mesh.material[1].color.getHex()
-        };
-        mesh.material[0].color.setHex(SEL_TOP);
-        mesh.material[1].color.setHex(SEL_SIDE);
-      } else if (mesh.material.color) {
-        originalMaterials = {
-          top: mesh.material.color.getHex(),
-          side: mesh.material.color.getHex()
-        };
-        mesh.material.color.setHex(SEL_TOP);
-      }
+
+      const camPos = center.clone().add(new THREE.Vector3().setFromSpherical(new THREE.Spherical(dist, polRad, azRad)));
+      camera.position.copy(camPos);
+      controls.target.copy(center);
+      camera.zoom = zoom;
+      camera.updateProjectionMatrix();
+      controls.update();
+      dirty = true;
     }
 
-    function closeUnitCard() {
-      selectMesh(null);
-      const card = document.getElementById('unit-card');
-      if (card) card.style.display = 'none';
+    function fitTarget(target, zoomFactor, az, polar) {
+      const azRad = (az != null ? az : -56) * DEG;
+      const polRad = (polar != null ? polar : 45) * DEG;
+      const dist = 1200;
+
+      const camPos = target.clone().add(new THREE.Vector3().setFromSpherical(new THREE.Spherical(dist, polRad, azRad)));
+      camera.position.copy(camPos);
+      controls.target.copy(target);
+      camera.zoom = zoomFactor;
+      camera.updateProjectionMatrix();
+      controls.update();
+      dirty = true;
     }
 
     function onPointerDown(e) {
@@ -906,36 +687,20 @@
     }
 
     function onPointerUp(e) {
-      // Don't select if user was dragging or rotating the camera
       if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 6) return;
 
       mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(clickableMeshes, true);
+      const hit = scene3d.pick(raycaster);
 
-      if (intersects.length > 0) {
-        let hit = intersects[0].object;
-        while (hit && !hit.userData?.name && hit.parent) {
-          hit = hit.parent;
-        }
-        if (hit && hit.userData?.name) {
-          selectMesh(hit);
-          showUnitCard(hit.userData);
-          return;
-        }
+      if (hit && hit.unit) {
+        scene3d.highlight(hit.unit.id);
+        showUnitCard(hit.unit);
+      } else {
+        closeUnitCard();
       }
-      // Clicked outside / empty ground
-      closeUnitCard();
-    }
-
-    function onPointerMove(e) {
-      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(clickableMeshes, true);
-      document.body.style.cursor = (intersects.length > 0) ? 'pointer' : 'default';
     }
 
     function showUnitCard(u) {
@@ -947,18 +712,18 @@
       const bld = document.getElementById('unit-bld');
       const logoImg = document.getElementById('unit-logo-img');
 
-      tag.textContent = u.block ? `${u.block}` : (u.building ? u.building.toUpperCase() : 'BSB');
-      tag.style.background = u.kind === 'ruko' ? '#f0fdf4' : (u.is_half ? '#fef3c7' : '#eff6ff');
-      tag.style.color = u.kind === 'ruko' ? '#166534' : (u.is_half ? '#92400e' : '#1e40af');
+      const name = u.display || u.name || 'Unit ' + (u.id || '');
+      title.textContent = name;
+      tag.textContent = u.building ? u.building.toUpperCase() : 'BSB DIRECTORY';
+      tag.style.background = u.building === 'ewalk' ? '#eff6ff' : (u.building === 'pentacity' ? '#f0fdf4' : '#fef3c7');
+      tag.style.color = u.building === 'ewalk' ? '#1d4ed8' : (u.building === 'pentacity' ? '#15803d' : '#b45309');
 
-      title.textContent = u.name;
-      cat.textContent = u.category || (u.is_half ? 'Kavling Pengembangan' : (u.kind === 'ruko' ? 'Ruko Komersial' : 'Retail'));
-      area.textContent = u.area ? `${u.area} m²` : '-';
-      bld.textContent = u.building === 'ruko' ? 'Kawasan Ruko BSB' : (u.building === 'ewalk' ? 'Mall E-Walk' : (u.building === 'pentacity' ? 'Mall Pentacity' : 'Kawasan BSB'));
+      cat.textContent = u.category || (u.kind === 'anchor' ? 'Anchor Tenant' : (u.kind === 'kiosk' ? 'Kios Island' : 'Retail Store'));
+      area.textContent = u.area_calc_m2 ? `${Math.round(u.area_calc_m2)} m²` : '-';
+      bld.textContent = u.building === 'ewalk' ? 'Mall E-Walk' : (u.building === 'pentacity' ? 'Mall Pentacity' : 'Kawasan Superblock');
 
-      const logoSrc = u.logo_3d || u.logo_cms;
-      if (logoSrc) {
-        logoImg.src = logoSrc;
+      if (u.logoCms) {
+        logoImg.src = u.logoCms;
         logoImg.style.display = 'block';
       } else {
         logoImg.style.display = 'none';
@@ -967,16 +732,34 @@
       card.style.display = 'block';
     }
 
+    function closeUnitCard() {
+      if (scene3d) scene3d.highlight(null);
+      const card = document.getElementById('unit-card');
+      if (card) card.style.display = 'none';
+    }
+
     function onWindowResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      const aspect = window.innerWidth / window.innerHeight;
+      const VIEW = 240;
+      camera.left = -VIEW * aspect / 2;
+      camera.right = VIEW * aspect / 2;
+      camera.top = VIEW / 2;
+      camera.bottom = -VIEW / 2;
+      camera.updateProjectionMatrix();
+      dirty = true;
     }
 
     function animate() {
       requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
+      if (autoRotate) {
+        controls.update();
+        renderer.render(scene3d.scene, camera);
+      } else if (dirty) {
+        controls.update();
+        renderer.render(scene3d.scene, camera);
+        dirty = false;
+      }
     }
 
     window.addEventListener('DOMContentLoaded', init);

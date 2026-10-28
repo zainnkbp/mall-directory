@@ -27,6 +27,7 @@ data/.tmp/
 data/.cron.lock
 data/.publish.lock
 tests/wpc/out/
+tests/uat/out/
 *.log
 *.zip
 bsb_directory_cpanel.sql

@@ -29,7 +29,8 @@ window.BSB = window.BSB || {};
     parking: { y: SLAB_H - 0.1, h: 0.06, top: 0xc3dcb4, side: 0xb2cfa2 },
     divider: { y: SLAB_H - 0.1, h: 0.25, top: 0xaed29b, side: 0x9cc488 },
     podium: { y: SLAB_H - 0.1, h: 0.45, top: 0xf1eee6, side: 0xe3dfd3 },
-    building: { y: SLAB_H - 0.1, h: 4.0, top: 0xfbfaf7, side: 0xefede7, gap: true }
+    building: { y: SLAB_H - 0.1, h: 4.0, top: 0xfbfaf7, side: 0xefede7, gap: true },
+    marka: { y: SLAB_H - 0.05, h: 0.02, top: 0xffffff, side: 0xffffff }
   };
   var FONT = '"Plus Jakarta Sans",system-ui,sans-serif';
   var FAC = { toilet: 'Toilet', lift: 'Lift', escalator: 'Eskalator', stairs: 'Tangga', prayer: 'Musholla', atm: 'ATM',
@@ -478,11 +479,38 @@ window.BSB = window.BSB || {};
     this.attachEdits();
     var F = this.floorG = new THREE.Group();
     this.ctxG = new THREE.Group();
-    (model.context || []).forEach(function (c) {
+    (model.context || []).forEach(function (c, ci) {
       var st = CTX[c.kind];
       if (!st || !c.poly || c.poly.length < 3) return;
+      var h = st.h;
+      var topColor = st.top;
+      var sideColor = st.side;
+      if (c.kind === 'building') {
+        var nm = (c.name || '').toLowerCase();
+        if (c.subtype === 'ruko') {
+          // Standard Ruko (Blok A-F) commercial shophouses
+          h = 5.5;
+          // Curated warm terracotta clay ceramic roof tile hues with natural per-unit variation
+          var rukoRoofs = [0xc86a4b, 0xbd5e3f, 0xd07353, 0xb65738, 0xcc6e4d, 0xba5a3b];
+          topColor = rukoRoofs[ci % rukoRoofs.length];
+          sideColor = 0xded8ce; // warm limestone / commercial plaster facade
+        } else if (/tower|apartment|appartment/.test(nm)) {
+          h = 12.0;
+          topColor = 0xb4c2d0; // modern slate glass / steel tower
+          sideColor = 0x93a3b5;
+        } else if (/hotel|jicon|beach|restaurant|wash/.test(nm)) {
+          h = 7.0;
+          topColor = 0xe5dfd5; // contemporary commercial stone
+          sideColor = 0xd5cec2;
+        } else {
+          // Other institutional & commercial buildings (pendidikan, gedung tengah, etc.)
+          h = 5.0;
+          topColor = 0xf5f3ed; // clean architectural off-white
+          sideColor = 0xe6e1d8;
+        }
+      }
       try {
-        var m = new THREE.Mesh(extrude(st.gap ? inset(c.poly, GAP) : c.poly, st.h), [new THREE.MeshLambertMaterial({ color: st.top }), new THREE.MeshLambertMaterial({ color: st.side })]);
+        var m = new THREE.Mesh(extrude(st.gap ? inset(c.poly, GAP) : c.poly, h), [new THREE.MeshLambertMaterial({ color: topColor }), new THREE.MeshLambertMaterial({ color: sideColor })]);
         m.position.y = st.y;
         self.ctxG.add(m);
       } catch (e) { /* skip bad outline */ }
