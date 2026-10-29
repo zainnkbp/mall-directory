@@ -29,7 +29,9 @@ Cek dari laptop (ganti host, port, user sesuai email hosting):
 ```bash
 ssh -i ~/.ssh/bsb_deploy -p 45022 ewalkpen@101.50.1.87 "php -v"   # Jagoan Hosting: SSH di port 45022
 ```
-Catat versi PHP. Perlu **PHP 8.1 atau lebih baru**. Kalau `php -v` lebih lama, cari yang baru: `ls /usr/local/bin/ea-php* /opt/cpanel/ea-php*/root/usr/bin/php 2>/dev/null` — pakai path itu sebagai `DEPLOY_PHP` di langkah 5.
+Aplikasi butuh **PHP 8.1+**. Di Jagoan Hosting `php` di terminal = 7.2 (dipakai juga WordPress di `public_html`, jangan diubah); PHP 8.2 ada di **`/opt/alt/php82/usr/bin/php`** (pdo_mysql ✓). Path itu dipakai untuk `DEPLOY_PHP`, cron, dan semua perintah `php` di panduan ini.
+
+Sidik jari server yang benar (cocokkan dengan yang muncul saat pertama connect): `SHA256:FnN8luObwKwKYjK1L/2dL0Ua6iyMzN4wDzo1pVA8BAY`.
 
 Ambil sidik jari server untuk GitHub:
 ```bash
@@ -43,12 +45,14 @@ ssh-keyscan -p 45022 101.50.1.87
    ```
 2. cPanel → **MySQL Databases**: buat database + user, beri **ALL PRIVILEGES**. Catat nama DB, user, password.
 3. cPanel → **phpMyAdmin** → pilih database → **Import** → `bsb_directory.sql`.
-   (Kalau terlalu besar: `scp ~/Desktop/bsb_directory.sql USER@HOST:~/` lalu di SSH `mysql -u USER_DB -p NAMA_DB < ~/bsb_directory.sql`.)
+   (Kalau terlalu besar: `scp -P 45022 -i ~/.ssh/bsb_deploy ~/Desktop/bsb_directory.sql ewalkpen@101.50.1.87:~/` lalu di SSH `mysql -u USER_DB -p NAMA_DB < ~/bsb_directory.sql && rm ~/bsb_directory.sql`.)
 
 ### 3. Folder di server
 ```bash
-ssh -i ~/.ssh/bsb_deploy USER@HOST
+ssh -i ~/.ssh/bsb_deploy -p 45022 ewalkpen@101.50.1.87
 mkdir -p ~/bsb/shared
+# PHP 8.2 khusus situs maps (WordPress di public_html tetap 7.2):
+echo 'AddHandler application/x-httpd-alt-php82___lsphp .php' > ~/bsb/shared/htaccess.local
 nano ~/bsb/shared/config.local.php
 ```
 Isi:
@@ -85,7 +89,7 @@ Repo → **Settings** → **Secrets and variables** → **Actions**.
 |---|---|
 | `DEPLOY_ENABLED` | `true` |
 | `DEPLOY_BASE` | `~/bsb` |
-| `DEPLOY_PHP` | `php`, atau path PHP 8 dari langkah 1 |
+| `DEPLOY_PHP` | `/opt/alt/php82/usr/bin/php` |
 | `SITE_URL` | `https://maps.ewalkpentacitymall.com` |
 
 Disarankan: **Settings → Branches → Add rule** untuk `main`: *Require a pull request* + *Require status checks* → pilih **test**. Jadi tidak ada kode yang tayang tanpa lolos tes.
@@ -94,27 +98,29 @@ Disarankan: **Settings → Branches → Add rule** untuk `main`: *Require a pull
 Merge Pull Request ke `main` (atau **Actions → CI & deploy → Run workflow** di branch `main`). Tunggu job **test** dan **deploy** hijau (±3 menit). Log deploy menampilkan `db ok, live data D00xx…` dan `done`.
 
 ### 6. Arahkan domain ke rilis
-cPanel → **Domains** → `maps.ewalkpentacitymall.com` → **Document Root** = `bsb/current`.
-
-Kalau cPanel menolak path itu: arahkan document root ke `public_html/maps`, lalu di SSH:
+Document root `maps.ewalkpentacitymall.com` sekarang `~/maps.ewalkpentacitymall.com` (berisi versi lama 12 Okt). Pindahkan folder lama ke luar web (tidak dihapus, untuk jaga-jaga), lalu jadikan link ke rilis:
 ```bash
-rm -rf ~/public_html/maps && ln -s ~/bsb/current ~/public_html/maps
+mv ~/maps.ewalkpentacitymall.com ~/maps-lama-20261012
+ln -s ~/bsb/current ~/maps.ewalkpentacitymall.com
+curl -sI https://maps.ewalkpentacitymall.com/ | head -1      # HTTP/2 200
+curl -s https://maps.ewalkpentacitymall.com/api/version     # JSON, bukan "Parse error"
 ```
+Kalau ternyata error / 403: kembalikan dengan `rm ~/maps.ewalkpentacitymall.com && mv ~/maps-lama-20261012 ~/maps.ewalkpentacitymall.com`, lalu kabari.
 Lalu cPanel → **SSL/TLS Status** → **Run AutoSSL** (HTTPS wajib untuk kompas iPhone).
 
 ### 7. Setelah online
 ```bash
 cd ~/bsb/current
-php tools/create_admin.php admin@bsb.local "Admin IT WBL" --password 'PasswordBaruYangKuat!'   # password produksi baru
-php tools/setup.php check                                                                     # semua harus OK
+/opt/alt/php82/usr/bin/php tools/create_admin.php admin@bsb.local "Admin IT WBL" --password 'PasswordBaruYangKuat!'   # password produksi baru
+/opt/alt/php82/usr/bin/php tools/setup.php check                                                                     # semua harus OK
 ```
 Buka `https://maps.ewalkpentacitymall.com/cms/` → login → **Publish** sekali.
 
 ### 8. Cron (tugas terjadwal)
 cPanel → **Cron Jobs** (ganti `php` dengan `DEPLOY_PHP` bila berbeda):
 ```
-*/5 * * * *  cd ~/bsb/current && php tools/cron.php > /dev/null 2>&1
-0 2 * * *    cd ~/bsb/current && php tools/cron.php --daily > /dev/null 2>&1
+*/5 * * * *  cd ~/bsb/current && /opt/alt/php82/usr/bin/php tools/cron.php > /dev/null 2>&1
+0 2 * * *    cd ~/bsb/current && /opt/alt/php82/usr/bin/php tools/cron.php --daily > /dev/null 2>&1
 ```
 (status penutupan toko/eskalator terjadwal, ringkasan analitik, pembersihan data lama)
 
@@ -138,7 +144,7 @@ Setiap rilis: naikkan `APP_BUILD` di `config.js` **dan** `?v=` di `index.html` +
 
 **Rollback** (kembali ke rilis sebelumnya, data tidak berubah):
 ```bash
-ssh -i ~/.ssh/bsb_deploy USER@HOST "bash ~/bsb/current/tools/deploy/rollback.sh"
+ssh -i ~/.ssh/bsb_deploy -p 45022 ewalkpen@101.50.1.87 "bash ~/bsb/current/tools/deploy/rollback.sh"
 ```
 Lihat daftar rilis: `ls -1t ~/bsb/releases`. Ke rilis tertentu: `bash ~/bsb/current/tools/deploy/rollback.sh <nama-rilis>`.
 
@@ -155,7 +161,7 @@ cd ~/bsb/current && mysql -u USER_DB -p NAMA_DB < db/migrate_xxx.sql && echo mig
 5. Dump database laptop → import ke server → CMS server → Publish. Buka lagi edit CMS.
 
 **Data server ke laptop** (untuk mengembangkan dengan data asli): Export DB dari phpMyAdmin, lalu
-`rsync -az -e "ssh -i ~/.ssh/bsb_deploy" USER@HOST:bsb/shared/media/ media/` dan `…:bsb/shared/data/3d/edits/ data/3d/edits/`.
+`rsync -az -e "ssh -p 45022 -i ~/.ssh/bsb_deploy" ewalkpen@101.50.1.87:bsb/shared/media/ media/` dan `…:bsb/shared/data/3d/edits/ data/3d/edits/`.
 
 ---
 
