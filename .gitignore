@@ -40,3 +40,7 @@ yarn-error.log*
 node_modules/
 __pycache__/
 *.pyc
+
+# database dumps carry CMS password hashes: never commit (public repo)
+_handoff/db/*_cpanel.sql
+_handoff/db/*_old.sql
