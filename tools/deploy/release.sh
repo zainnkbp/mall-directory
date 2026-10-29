@@ -36,6 +36,8 @@ done
 say "checking"
 find "$R" -path "$R/media" -prune -o -name '*.php' -print0 | xargs -0 -n 40 "$PHP" -l >/dev/null
 ( cd "$R" && "$PHP" -r 'require "lib/bootstrap.php"; Db::val("SELECT 1"); $d = json_decode((string)file_get_contents("data/directory.json"), true); if (!isset($d["meta"]["version"])) { fwrite(STDERR, "data/directory.json unreadable\n"); exit(1); } echo "db ok, live data ", $d["meta"]["version"], "\n";' )
+# the first deploy comes with a full database dump, which already holds every migration up to now
+if [ ! -f "$S/.migrations-seen" ]; then for m in "$R"/db/migrate_*.sql; do [ -e "$m" ] && basename "$m"; done > "$S/.migrations-seen"; fi
 for m in "$R"/db/migrate_*.sql; do
   [ -e "$m" ] || continue
   grep -qx "$(basename "$m")" "$S/.migrations-seen" 2>/dev/null || say "NOTE: new migration $(basename "$m") — review and run it by hand (docs/DEPLOY.md)"

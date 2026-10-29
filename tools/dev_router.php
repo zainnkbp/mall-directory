@@ -26,7 +26,10 @@ if (preg_match('#(^|/)\.|^/(lib|db|tools|_handoff|tests)(/|$)#', $path)
 
 $file = realpath($root . $path);
 if ($file !== false && is_dir($file)) $file = realpath($file . '/index.html');
-if ($file === false || !str_starts_with($file, $root . DIRECTORY_SEPARATOR) || !is_file($file)) {
+// a deployed release links data/… and media/ to the shared folder (like Apache's SymLinksIfOwnerMatch): the request path
+// must stay inside the root, the link target may be outside it
+$inside = $file !== false && (str_starts_with($file, $root . DIRECTORY_SEPARATOR) || !preg_match('#(^|/)\.\.(/|$)#', $path));
+if ($file === false || !$inside || !is_file($file)) {
     http_response_code(404); header('Content-Type: text/plain'); echo "Not found\n"; return true;
 }
 
