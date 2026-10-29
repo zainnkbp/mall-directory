@@ -1,3 +1,14 @@
 {
-    "units": {}
+    "units": {
+        "ewalk-GF-kopi-kenangan": {
+            "name": "Eprise",
+            "color": "#e8e8e8",
+            "c": [
+                65.1,
+                0.3
+            ]
+        }
+    },
+    "saved_at": "2026-10-29T13:34:15",
+    "saved_by": "Admin IT WBL"
 }
