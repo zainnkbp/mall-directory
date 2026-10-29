@@ -13,6 +13,10 @@
  *   flow    attract -> search keyboard -> list -> detail -> route -> QR modal -> back -> home, language toggle, idle reset
  *   phone   m/ guidance page for a multi-floor route
  *   cms     every CMS page renders (mock data, or the real API with UAT_EMAIL/UAT_PASSWORD), no read-only page writes
+ *   journey phone used for real: entrance / store -> preview -> destination -> "start" -> every step incl. floor changes -> arrived
+ *   hosting the site opened as maps.ewalkpentacitymall.com (mapped to this server): kiosk QR uses that domain, no dev data
+ *   embed   the phone page inside an iframe of another site (stand-in for the e-Walk website, tests/uat/embed.html)
+ * cli also runs tests/uat/routes_allpairs.js (every start the phone offers -> every destination, full plans).
  * Telemetry and kiosk pings are blocked so a run leaves no analytics behind. Screenshots + report: tests/uat/out/.
  */
 'use strict';
@@ -53,6 +57,7 @@ async function suiteCli() {
     ['verify_routes accessible', 'python3', ['tools/verify_routes.py', '--accessible']],
     ['validate.php (DB)', 'php', ['tools/validate.php']],
     ['validate.php accessible (DB)', 'php', ['tools/validate.php', '--accessible']],
+    ['all start/destination pairs (phone)', process.execPath, ['tests/uat/routes_allpairs.js']],
   ];
   const rs = await Promise.all(jobs.map(j => run(j[1], j[2])));
   rs.forEach((r, i) => {
@@ -449,18 +454,162 @@ async function suiteCms() {
   await page.context().close();
 }
 
+// ------------------------------------------------------------------ journey / hosting / embed
+// the public names are mapped to this server inside the test browser (--host-resolver-rules), the port stays
+const HOST_SITE = 'maps.ewalkpentacitymall.com', HOST_WEB = 'web.ewalkpentacitymall.test';
+const PORT = new URL(BASE).port;
+const SITE = 'http://' + HOST_SITE + (PORT ? ':' + PORT : '') + '/';
+const MOBILE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+const plainName = s => String(s).replace(/ /g, ' ');
+
+// picker: tap the row titled exactly `name` (after typing `q` into the search box when given)
+async function pickRow(f, name, q) {
+  if (q != null) { await f.fill('#pickQ', q); await sleep(250); }
+  const rows = await f.$$('#pickList .pick-row');
+  for (const r of rows) if (plainName(await r.$eval('b', b => b.textContent)) === plainName(name)) { await r.click(); return true; }
+  return false;
+}
+const phoneReady = f => f.waitForFunction(() => window.__phoneReady, null, { timeout: 60000 }).then(() => true, () => false);
+// "Start navigation", then "I'm here" on every step and "I'm on <floor>" on every floor change, until "You've arrived"
+async function walkToArrival(f) {
+  await f.click('#startBtn');
+  let sheets = 0, taps = 0, floors = [];
+  for (; taps < 120; taps++) {
+    if (await f.evaluate(() => !document.querySelector('#scrDone').hidden)) return { arrived: true, sheets, taps, floors };
+    if (await f.evaluate(() => !document.querySelector('#floorSheet').hidden)) { sheets++; await f.click('#flBtn'); }
+    else await f.click('#hereBtn');
+    await sleep(300);
+    const fl = await f.evaluate(() => { const m = window.__phone.map(); return m && m.floor; });
+    if (fl && floors[floors.length - 1] !== fl) floors.push(fl);
+  }
+  return { arrived: false, sheets, taps, floors };
+}
+
+async function suiteJourney() {
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  const onFloor = fl => DIR.tenants.filter(t => t.node && t.floor === fl).sort(byName)[0];
+  const far = ['sf-penta', 'lg-ewalk', 'ff-ewalk', 'ug', 'lg-penta', 'ff-penta', 'gf', 'sf-ewalk'];
+  // every entrance to a store on another floor (2F E-Walk included: no lift there, escalator route)
+  const cases = DIR.kiosks.map((k, i) => ({ from: k, tab: 'lobby', to: onFloor(far.filter(f => f !== k.floor)[i % 7]) }));
+  const s = ['lg-penta', 'ff-ewalk', 'ug', 'sf-penta'].map(onFloor);
+  cases.push({ from: s[0], tab: 'store', to: s[1] }, { from: s[2], tab: 'store', to: s[3] }, { from: s[1], tab: 'store', fac: 'toilet' });
+  const pool = cases.slice();
+  await Promise.all([0, 1, 2].map(async () => {
+    let c;
+    while ((c = pool.shift())) {
+      const label = c.from.name + ' -> ' + (c.fac || c.to.name);
+      const page = await newPage(MOBILE, 'journey');
+      try {
+        await page.goto(BASE + 'm/?lang=id');
+        await page.waitForSelector('#scrPick:not([hidden]) .pick-row', { timeout: 30000 });
+        if (c.tab === 'store') await page.click('#pickTabs [data-ptab="store"]');
+        const picked = await pickRow(page, c.from.name, c.tab === 'store' ? c.from.name : null);
+        await page.waitForSelector('#pickSheet:not([hidden])', { timeout: 10000 });
+        await page.click('#pvYes');
+        await page.waitForFunction(() => document.querySelector('#pickStep').textContent.includes('2'), null, { timeout: 10000 });
+        if (c.fac) await page.click('#pickFac [data-fac="' + c.fac + '"]');
+        else await pickRow(page, c.to.name, c.to.name);
+        const ready = await phoneReady(page);
+        ok('journey', label + ': route ready', picked && ready);
+        if (ready) {
+          const w = await walkToArrival(page);
+          ok('journey', label + ': walked to "arrived" (' + w.taps + ' taps, ' + w.sheets + ' floor changes)', w.arrived, JSON.stringify(w));
+          if (!c.fac && c.to.floor !== c.from.floor) ok('journey', label + ': floor change shown and map ends on ' + c.to.floor, w.sheets > 0 && w.floors[w.floors.length - 1] === c.to.floor, w.floors.join(' > '));
+        }
+      } catch (e) { ok('journey', label + ': no exception', false, e.message.split('\n')[0]); }
+      errorsOk('journey', page, label);
+      await page.context().close();
+    }
+  }));
+}
+
+async function suiteHosting() {
+  // kiosk on the public domain; ?fixture= must do nothing there
+  const page = await newPage(null, 'hosting');
+  await page.goto(SITE + 'index.html?attract=0&fixture=v2');
+  const up = await page.waitForFunction(() => window.__kioskReady, null, { timeout: 60000 }).then(() => true, () => false);
+  ok('hosting', 'kiosk opens on ' + HOST_SITE, up);
+  const st = await page.evaluate(() => ({ host: location.host, dev: window.BSB.devMode, version: window.BSB.D && window.BSB.D.meta.version }));
+  ok('hosting', 'dev features off on a public domain (?fixture= ignored)', !st.dev && st.version === DIR.meta.version, JSON.stringify(st));
+  const t = DIR.tenants.find(x => x.node && x.floor !== 'gf');
+  await page.evaluate(id => window.BSB_MAP.onTenantTap(window.BSB.D.tenantById[id]), t.id);
+  await page.click('#goRoute'); await sleep(1500);
+  const url = await page.evaluate(() => document.querySelector('#route').dataset.url || '');
+  ok('hosting', 'kiosk QR opens the site itself (not the LAN address in config.js)', url.indexOf(SITE + 'm/?k=') === 0, url);
+  const urls = await page.evaluate(async () => {
+    const out = {};
+    for (const p of ['api/version', 'data/directory.json', 'data/3d/floors.json', 'm/', 'cms/login.html']) {
+      try { out[p] = (await fetch(p, { cache: 'no-store' })).status; } catch (e) { out[p] = 0; }
+    }
+    return out;
+  });
+  ok('hosting', 'API, data, phone page and CMS answer on the domain', Object.values(urls).every(s => s === 200), JSON.stringify(urls));
+  errorsOk('hosting', page, 'kiosk on ' + HOST_SITE);
+  await page.context().close();
+  // the QR link opened on a phone
+  if (url) {
+    const ph = await newPage(MOBILE, 'hosting-phone');
+    await ph.goto(url);
+    ok('hosting', 'phone opens the kiosk QR link', await phoneReady(ph));
+    errorsOk('hosting', ph, 'phone from the kiosk QR');
+    await ph.context().close();
+  }
+}
+
+async function suiteEmbed() {
+  // tests/ is not served (dev_router / .htaccess): the stand-in website page is handed to the browser directly
+  const parent = 'http://' + HOST_WEB + (PORT ? ':' + PORT : '') + '/embed.html?src=' + encodeURIComponent(SITE + 'm/?lang=id');
+  const parentHtml = fs.readFileSync(path.join(__dirname, 'embed.html'), 'utf8');
+  for (const [tag, opts] of [['desktop', { viewport: { width: 1280, height: 900 } }], ['mobile', MOBILE]]) {
+    const page = await newPage(opts, 'embed-' + tag);
+    await page.route(u => u.host === new URL(parent).host && u.pathname === '/embed.html', r => r.fulfill({ status: 200, contentType: 'text/html', body: parentHtml }));
+    try {
+      await page.goto(parent);
+      const f = await (await page.waitForSelector('#bsbMap')).contentFrame();
+      const loaded = await f.waitForSelector('#scrPick:not([hidden]) .pick-row', { timeout: 30000 }).then(() => true, () => false);
+      ok('embed', tag + ': map page loads inside the website iframe (cross-origin)', loaded && new URL(f.url()).host !== new URL(page.url()).host, f.url());
+      await f.click('#pickList .pick-row');
+      await f.waitForSelector('#pickSheet:not([hidden])', { timeout: 10000 }); await sleep(1500);
+      const drawn = await f.evaluate(() => {
+        const m = window.__phone.map(), L = m && m.layers[m.floor]; let n = 0;
+        if (L && L.three) { m._render3d(L); const gl = L.three.renderer.getContext(), px = new Uint8Array(4);
+          for (let i = 1; i < 10; i++) for (let j = 1; j < 10; j++) { gl.readPixels(Math.floor(gl.drawingBufferWidth * i / 10), Math.floor(gl.drawingBufferHeight * j / 10), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px); if (px[3]) n++; } }
+        return n;
+      });
+      ok('embed', tag + ': 3D preview draws inside the iframe', drawn > 10, drawn);
+      await f.click('#pvYes');
+      await f.waitForFunction(() => document.querySelector('#pickStep').textContent.includes('2'), null, { timeout: 10000 });
+      await f.fill('#pickQ', 'sol'); await sleep(250);
+      await f.click('#pickList .pick-row');
+      ok('embed', tag + ': route inside the iframe', await phoneReady(f));
+      const lay = await f.evaluate(() => ({ hscroll: document.documentElement.scrollWidth > innerWidth, w: innerWidth }));
+      ok('embed', tag + ': no sideways scrolling in the iframe', !lay.hscroll, JSON.stringify(lay));
+      await f.click('#startBtn');
+      ok('embed', tag + ': navigation starts inside the iframe', await f.waitForSelector('#scrNav:not([hidden])', { timeout: 10000 }).then(() => true, () => false));
+      await page.screenshot({ path: OUT + 'embed-' + tag + '.png' });
+    } catch (e) { ok('embed', tag + ': no exception', false, e.message.split('\n')[0]); }
+    errorsOk('embed', page, tag);
+    await page.context().close();
+  }
+}
+
 // ------------------------------------------------------------------ main
 (async () => {
   const t0 = Date.now();
   const up = await get(BASE + 'api/version');
   if (up.status !== 200) { console.error('Server not reachable at ' + BASE + ' (start: php -S 127.0.0.1:8000 tools/dev_router.php)'); process.exit(2); }
-  const needBrowser = ['floors', 'routes', 'flow', 'phone', 'cms'].some(want);
+  const needBrowser = ['floors', 'routes', 'flow', 'phone', 'cms', 'journey', 'hosting', 'embed'].some(want);
   if (needBrowser) {
     if (!PW || !CHROME) { console.error('playwright-core or Chrome not found (set PW= / CHROME=)'); process.exit(2); }
     const { chromium } = require(PW);
-    browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+    browser = await chromium.launch({ executablePath: CHROME, headless: true, args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
+      '--host-resolver-rules=MAP ' + HOST_SITE + ' 127.0.0.1, MAP ' + HOST_WEB + ' 127.0.0.1',
+      // the stand-in website is served by the test itself (looks public) while the map resolves to 127.0.0.1: without this
+      // Chrome's local-network check blocks the iframe. On the real hosting both are public, so the check never applies.
+      '--disable-features=LocalNetworkAccessChecks'] });
   }
-  const suites = { cli: suiteCli, api: suiteApi, floors: suiteFloors, routes: suiteRoutes, flow: suiteFlow, phone: suitePhone, cms: suiteCms };
+  const suites = { cli: suiteCli, api: suiteApi, floors: suiteFloors, routes: suiteRoutes, flow: suiteFlow, phone: suitePhone, cms: suiteCms,
+    journey: suiteJourney, hosting: suiteHosting, embed: suiteEmbed };
   const timing = {};
   await Promise.all(Object.entries(suites).filter(([k]) => want(k)).map(([k, fn]) => {
     const s = Date.now();
@@ -471,7 +620,7 @@ async function suiteCms() {
   const bySuite = {};
   results.forEach(r => { const s = bySuite[r.suite] = bySuite[r.suite] || { pass: 0, fail: 0 }; r.ok ? s.pass++ : s.fail++; });
   console.log('\nUAT ' + BASE + '  (' + Math.round((Date.now() - t0) / 1000) + ' s, directory ' + DIR.meta.version + ')');
-  Object.entries(bySuite).forEach(([k, s]) => console.log('  ' + (s.fail ? 'FAIL' : 'ok  ') + ' ' + k.padEnd(7) + s.pass + ' passed' + (s.fail ? ', ' + s.fail + ' failed' : '')));
+  Object.entries(bySuite).forEach(([k, s]) => console.log('  ' + (s.fail ? 'FAIL' : 'ok  ') + ' ' + k.padEnd(8) + s.pass + ' passed' + (s.fail ? ', ' + s.fail + ' failed' : '')));
   fs.writeFileSync(OUT + 'report.json', JSON.stringify({ base: BASE, version: DIR.meta.version, at: new Date().toISOString(), timing, results }, null, 1));
   console.log('report: ' + path.relative(ROOT, OUT + 'report.json'));
   process.exit(results.some(r => !r.ok) ? 1 : 0);

@@ -15,17 +15,28 @@ window.BSB = window.BSB || {};
     return a.href.replace(/\/$/, '');
   };
 
+  // localhost, loopback, LAN / bare IPs and *.local: addresses a visitor's phone usually cannot open
+  B.isLocalHost = function (host) {
+    host = String(host == null ? location.hostname : host).toLowerCase().replace(/^\[|\]$/g, '');
+    return host === 'localhost' || host === '::1' || /\.local$/.test(host) || /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+  };
+  // address the phone QR opens: ?base= > a page on a public domain uses its own address (hosting works as is) >
+  // config PUBLIC_BASE > CMS setting public.baseUrl (snapshot) when it is not local > this page
   B.publicBase = function () {
     var q = new URLSearchParams(location.search).get('base');
-    var cfg = (window.BSB_CONFIG || {}).PUBLIC_BASE;
-    return String(q || cfg || B.appBaseUrl()).replace(/\/$/, '');
+    var own = B.appBaseUrl(), cfg = (window.BSB_CONFIG || {}).PUBLIC_BASE;
+    var cms = B.D && B.D.meta && B.D.meta.config && B.D.meta.config.publicBase;
+    if (cms && B.isLocalHost(String(cms).replace(/^https?:\/\/([^/:]+).*$/i, '$1'))) cms = null;
+    return String(q || (!B.isLocalHost() && own) || cfg || cms || own).replace(/\/$/, '');
   };
 
   // ---- snapshot loading (directory + promos + status) with localStorage fallback (no Service Worker) ----
   var Q = new URLSearchParams(location.search);
   var CFG = window.BSB_CONFIG || {};
   // dev/test only: ?fixture=v2 -> tests/fixtures/<name>.v2.json
-  var FIX = CFG.devMode && /^[a-z0-9_-]+$/i.test(Q.get('fixture') || '') ? Q.get('fixture') : null;
+  // dev conveniences only on a local host: on the public site ?fixture= would let a link show test data
+  B.devMode = !!CFG.devMode && B.isLocalHost();
+  var FIX = B.devMode && /^[a-z0-9_-]+$/i.test(Q.get('fixture') || '') ? Q.get('fixture') : null;
   B.snapUrl = function (name) {
     var vParam = (name === 'directory' ? '?v=D0034-202610061135' : '');
     return B.ROOT + (FIX ? 'tests/fixtures/' + name + '.' + FIX + '.json' : 'data/' + name + '.json' + vParam);

@@ -57,7 +57,7 @@ final class KiosksApi
         $tok = Util::b64url(random_bytes(32));
         Db::update('kiosks', ['token_hash' => hash('sha256', $tok), 'token_hint' => substr($tok, -4)], ['id' => $k['id']]);
         Audit::log('token', 'kiosk', $k['id'], 'token kiosk dibuat ulang (hint …' . substr($tok, -4) . ')');
-        $base = rtrim((string)Settings::get('public.baseUrl', 'http://localhost/bsb-directory'), '/');
+        $base = Util::publicBaseUrl();
         $url = $base . '/?kiosk=' . rawurlencode($k['id']) . '&key=' . $tok;
         $bat = "@echo off\r\nREM Kiosk " . $k['id'] . " — dibuat " . date('Y-m-d H:i') . "\r\nset URL=" . str_replace('%', '%%', $url) . "\r\n"
             . "start \"\" \"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --kiosk \"%URL%\" --edge-kiosk-type=fullscreen --user-data-dir=C:\\bsb-kiosk\\edge --no-first-run --disable-pinch --overscroll-history-navigation=0\r\n";

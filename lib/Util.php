@@ -111,4 +111,19 @@ final class Util
         $d = str_replace('\\', '/', dirname(dirname($sn)));
         return ($d === '/' || $d === '.') ? '' : rtrim($d, '/');
     }
+
+    /**
+     * Public address of the app (kiosk launch links). Setting public.baseUrl when it is a public host; while it is still
+     * localhost / a LAN IP (the default) the address this request came in on, so a fresh hosting needs no setting.
+     */
+    public static function publicBaseUrl(): string
+    {
+        $set = rtrim((string)Settings::get('public.baseUrl', ''), '/');
+        $host = strtolower((string)parse_url($set, PHP_URL_HOST));
+        $local = $host === '' || $host === 'localhost' || str_ends_with($host, '.local') || filter_var($host, FILTER_VALIDATE_IP);
+        $reqHost = (string)($_SERVER['HTTP_HOST'] ?? '');
+        if (!$local || !preg_match('/^[a-z0-9.-]+(:\d+)?$/i', $reqHost)) return $set !== '' ? $set : 'http://localhost/bsb-directory';
+        $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' && Config::get('trustProxy'));
+        return ($https ? 'https' : 'http') . '://' . $reqHost . self::appBasePath();
+    }
 }
