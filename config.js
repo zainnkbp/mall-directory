@@ -53,7 +53,7 @@ window.BSB_CONFIG = {
   // ---- CMS runtime (WP-C) ----
   // bump on every kiosk code deploy -> new Service Worker + shell cache (sw.js?v=APP_BUILD); also set the same value in the
   // ?v= of the script / stylesheet tags of index.html and m/index.html so a cached page never mixes old and new files
-  APP_BUILD: '2026.10.29-6',
+  APP_BUILD: '2026.10.29-7',
   API_BASE: 'api',          // relative to the app root; without mod_rewrite use 'api/index.php?r='. Kiosk identity: ?kiosk=<id>&key=<token> on the launch URL.
   POLL_SEC: 60,             // version poll / heartbeat interval (±10 s jitter). Status closures apply within ~70 s.
   TELEMETRY_SEC: 60,        // telemetry flush interval (also flushes at >= 50 queued events)

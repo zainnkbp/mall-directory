@@ -86,7 +86,7 @@
     var L0 = plan.legs[0];
     return map.showFloor(L0.floor, { box: legBox(L0, 25), animate: false }).then(function () {
       map.setDest(target);
-      map.setRoute(L0.floor, L0.pts, { animate: true, duration: 1.4, startMarker: false });
+      map.setRoute(L0.floor, L0.pts, { animate: true, duration: 2.8, startMarker: false });
       window.__phoneReady = true;
     });
   }
@@ -304,7 +304,7 @@
     var p = needFloor ? map.showFloor(fl, { box: box, dir: dir }) : Promise.resolve();
     p.then(function () {
       if (mid) { map.setRoute(null); map.setConnectors([{ floor: fl, x: f.s.end.x, y: f.s.end.y, label: f.s.transition.short, dir: f.s.transition.dir, kind: f.s.transition.type }]); }
-      else { map.setConnectors([]); map.setRoute(leg.floor, leg.pts, { animate: needFloor || force, duration: 1, startMarker: f.li > 0 }); }
+      else { map.setConnectors([]); map.setRoute(leg.floor, leg.pts, { animate: needFloor || force, duration: 2.2, startMarker: f.li > 0 }); }
       update(true);
     });
     $('#floorSheet').hidden = f.s.kind !== 'transition';
@@ -574,7 +574,7 @@
       var L0 = plan.legs[0];
       map.showFloor(L0.floor, { box: legBox(L0, 25), animate: false }).then(function () {
         map.setDest(target);
-        map.setRoute(L0.floor, L0.pts, { animate: true, duration: 1.2, startMarker: false });
+        map.setRoute(L0.floor, L0.pts, { animate: true, duration: 2.8, startMarker: false });
       });
       if (!$('#scrNav').hidden) { ci = 0; legM = 0; enterStep(); }
     }

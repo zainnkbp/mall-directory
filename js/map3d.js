@@ -526,7 +526,7 @@ window.BSB = window.BSB || {};
     sc.setRouteProgress(0); this.renderOverlay(); this._redraw(floor);
     var o = { p: 0 };
     return new Promise(function (res) {
-      self._rib = gsap.to(o, { p: 1, duration: Math.min(opts.duration || 1.6, B.perf && B.perf.lite ? 1 : 3), ease: 'power1.inOut',
+      self._rib = gsap.to(o, { p: 1, duration: Math.min(opts.duration || 1.6, B.perf && B.perf.lite ? 1 : 6), ease: 'power1.inOut',
         onUpdate: function () { sc.setRouteProgress(o.p); if (self.floor === floor) self._render3d(L); },
         onComplete: res, onInterrupt: function () { sc.setRouteProgress(1); res(); } });
     });

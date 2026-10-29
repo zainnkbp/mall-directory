@@ -567,7 +567,7 @@
     return map.showFloor(leg.floor, { box: legBox(leg, i, P), dir: f.level >= cur ? 'up' : 'down', duration: lite() ? 0.2 : 1.1 }).then(function () {
       map.setConnectors(connectorsFor(leg));
       renderSwitcher();
-      return map.setRoute(leg.floor, leg.pts, { animate: animate, startMarker: i > 0, duration: Math.max(1.3, Math.min(3.2, leg.meters / 45)) });
+      return map.setRoute(leg.floor, leg.pts, { animate: animate, startMarker: i > 0, duration: Math.max(2.5, Math.min(6, leg.meters / 22)) });
     });
   }
   function stripTags(s) { var d = document.createElement('div'); d.innerHTML = s; return d.textContent; }

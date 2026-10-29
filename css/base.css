@@ -80,7 +80,7 @@ img { -webkit-user-drag: none; user-drag: none; }
 .r-glow { stroke: var(--accent); stroke-width: 32; opacity: .28; stroke-dasharray: 1 2; }
 .r-case { stroke: #fff; stroke-width: 16; stroke-dasharray: 1 2; filter: drop-shadow(0 3px 6px rgba(0,0,0,.18)); }
 .r-core { stroke: var(--accent); stroke-width: 9.5; stroke-dasharray: 1 2; }
-.r-ants { stroke: #fff; stroke-width: 4; stroke-dasharray: 4 14; opacity: 0; animation: ants 0.8s linear infinite; transition: opacity .3s; }
+.r-ants { stroke: #fff; stroke-width: 4; stroke-dasharray: 4 14; opacity: 0; animation: ants 1.6s linear infinite; transition: opacity .3s; }
 @keyframes ants { to { stroke-dashoffset: -18; } }
 
 /* you are here / custom origin */
