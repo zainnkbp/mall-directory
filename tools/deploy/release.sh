@@ -32,6 +32,9 @@ for p in config.local.php data/directory.json data/version.json data/status.json
   [ -e "$S/$p" ] && link "$p"
 done
 
+# host-specific Apache/LiteSpeed lines (e.g. the PHP version for this folder only) go first in .htaccess
+if [ -f "$S/htaccess.local" ]; then { cat "$S/htaccess.local"; echo; cat "$R/.htaccess"; } > "$R/.htaccess.new" && mv "$R/.htaccess.new" "$R/.htaccess"; fi
+
 # checks before going live: PHP syntax, database reachable, live snapshot readable
 say "checking"
 find "$R" -path "$R/media" -prune -o -name '*.php' -print0 | xargs -0 -n 40 "$PHP" -l >/dev/null
