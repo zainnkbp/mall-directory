@@ -27,13 +27,13 @@ cPanel → **SSH Access** → **Manage SSH Keys** → **Import Key** → tempel 
 
 Cek dari laptop (ganti host, port, user sesuai email hosting):
 ```bash
-ssh -i ~/.ssh/bsb_deploy -p 22 USER@HOST "php -v"
+ssh -i ~/.ssh/bsb_deploy -p 45022 ewalkpen@101.50.1.87 "php -v"   # Jagoan Hosting: SSH di port 45022
 ```
 Catat versi PHP. Perlu **PHP 8.1 atau lebih baru**. Kalau `php -v` lebih lama, cari yang baru: `ls /usr/local/bin/ea-php* /opt/cpanel/ea-php*/root/usr/bin/php 2>/dev/null` — pakai path itu sebagai `DEPLOY_PHP` di langkah 5.
 
 Ambil sidik jari server untuk GitHub:
 ```bash
-ssh-keyscan -p 22 HOST
+ssh-keyscan -p 45022 101.50.1.87
 ```
 
 ### 2. Database
@@ -73,9 +73,9 @@ Repo → **Settings** → **Secrets and variables** → **Actions**.
 
 | Nama | Isi |
 |---|---|
-| `SSH_HOST` | host SSH hosting |
-| `SSH_PORT` | port SSH (sering 22, kadang 2222 / 21098) |
-| `SSH_USER` | user cPanel |
+| `SSH_HOST` | `101.50.1.87` |
+| `SSH_PORT` | `45022` (Jagoan Hosting) |
+| `SSH_USER` | `ewalkpen` |
 | `SSH_PRIVATE_KEY` | isi `~/.ssh/bsb_deploy` (file **tanpa** `.pub`), seluruhnya |
 | `SSH_KNOWN_HOSTS` | hasil `ssh-keyscan` di langkah 1 |
 
