@@ -1,0 +1,65 @@
+# Tests on every pull request and push; a push to main that passes is deployed to the hosting over SSH.
+# One-time setup (secrets, variables, server folders): docs/DEPLOY.md
+name: CI & deploy
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: PHP syntax
+        run: find . -path ./media -prune -o -name '*.php' -print0 | xargs -0 -n 40 php -l > /dev/null
+      - name: JS syntax
+        run: for f in js/*.js cms/js/*.js; do node --check "$f" || exit 1; done
+      - name: Shell scripts
+        run: bash -n tools/deploy/release.sh && bash -n tools/deploy/rollback.sh
+      - name: Every route from every entrance and store
+        run: node tests/uat/routes_allpairs.js
+      - name: Route regression
+        run: node tests/wpc/route_regression.js
+      - name: Route verification (Python)
+        run: python3 tools/verify_routes.py
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      BASE: ${{ vars.DEPLOY_BASE || '~/bsb' }}
+      PHP: ${{ vars.DEPLOY_PHP || 'php' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package release
+        run: |
+          echo "LABEL=$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          git archive --format=tar.gz -o release.tgz HEAD
+      - name: SSH key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          printf 'Host bsb\n  HostName %s\n  Port %s\n  User %s\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n' \
+            "${{ secrets.SSH_HOST }}" "${{ secrets.SSH_PORT || 22 }}" "${{ secrets.SSH_USER }}" > ~/.ssh/config
+      - name: Upload
+        run: |
+          ssh bsb "mkdir -p $BASE/incoming"
+          scp release.tgz tools/deploy/release.sh bsb:"$BASE/incoming/"
+      - name: Install and switch
+        run: ssh bsb "BSB_BASE=$BASE BSB_PHP=$PHP bash $BASE/incoming/release.sh $BASE/incoming/release.tgz $LABEL"
+      - name: Smoke test
+        if: vars.SITE_URL != ''
+        run: |
+          curl -fsS "${{ vars.SITE_URL }}/data/version.json" | head -c 400; echo
+          curl -fsS -o /dev/null -w "kiosk %{http_code}\n" "${{ vars.SITE_URL }}/"
+          curl -fsS -o /dev/null -w "phone %{http_code}\n" "${{ vars.SITE_URL }}/m/"

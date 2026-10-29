@@ -56,6 +56,8 @@ final class Util
     /** Tulis file secara atomik (tmp + rename) dengan izin dev yang ramah Apache/CLI. */
     public static function atomicWrite(string $path, string $content): void
     {
+        // a deployed release links its live files (data/directory.json, …) to the shared folder: write through the link, never replace it
+        for ($i = 0; $i < 8 && is_link($path); $i++) { $l = (string)readlink($path); $path = $l[0] === '/' ? $l : dirname($path) . '/' . $l; }
         $dir = dirname($path);
         self::ensureDir($dir);
         $tmp = $path . '.tmp' . getmypid() . bin2hex(random_bytes(3));
