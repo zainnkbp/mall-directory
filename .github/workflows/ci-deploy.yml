@@ -16,11 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 22 }
       - name: PHP syntax
         run: find . -path ./media -prune -o -name '*.php' -print0 | xargs -0 -n 40 php -l > /dev/null
       - name: JS syntax
-        run: for f in js/*.js cms/js/*.js; do node --check "$f" || exit 1; done
+        run: for f in js/*.js cms/js/*.js cms/js/pages/*.js; do node --check "$f" || exit 1; done
       - name: Shell scripts
         run: bash -n tools/deploy/release.sh && bash -n tools/deploy/rollback.sh
       - name: Every route from every entrance and store
