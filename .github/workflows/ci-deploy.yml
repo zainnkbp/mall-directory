@@ -14,8 +14,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22 }
       - name: PHP syntax
         run: find . -path ./media -prune -o -name '*.php' -print0 | xargs -0 -n 40 php -l > /dev/null
@@ -39,16 +39,23 @@ jobs:
       BASE: ${{ vars.DEPLOY_BASE || '~/bsb' }}
       PHP: ${{ vars.DEPLOY_PHP || 'php' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Package release
         run: |
           echo "LABEL=$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
           git archive --format=tar.gz -o release.tgz HEAD
       - name: SSH key
+        env:
+          KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          KNOWN: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
-          printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          # the secret may hold the key as pasted text or as one base64 line (base64 -i ~/.ssh/bsb_deploy | tr -d '\n')
+          if printf '%s' "$KEY" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy
+          else printf '%s' "$KEY" | tr -d ' \r\n' | base64 -d > ~/.ssh/deploy; fi
+          chmod 600 ~/.ssh/deploy
+          ssh-keygen -y -P '' -f ~/.ssh/deploy > /dev/null || { echo "::error::SSH_PRIVATE_KEY is not a valid private key — re-save it as base64 (docs/DEPLOY.md A4)"; exit 1; }
+          printf '%s\n' "$KNOWN" | tr -d '\r' > ~/.ssh/known_hosts
           printf 'Host bsb\n  HostName %s\n  Port %s\n  User %s\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n' \
             "${{ secrets.SSH_HOST }}" "${{ secrets.SSH_PORT || 22 }}" "${{ secrets.SSH_USER }}" > ~/.ssh/config
       - name: Upload

@@ -80,7 +80,7 @@ Repo → **Settings** → **Secrets and variables** → **Actions**.
 | `SSH_HOST` | `101.50.1.87` |
 | `SSH_PORT` | `45022` (Jagoan Hosting) |
 | `SSH_USER` | `ewalkpen` |
-| `SSH_PRIVATE_KEY` | isi `~/.ssh/bsb_deploy` (file **tanpa** `.pub`), seluruhnya |
+| `SSH_PRIVATE_KEY` | key dalam bentuk satu baris base64: jalankan `base64 -i ~/.ssh/bsb_deploy \| tr -d '\n' \| pbcopy` lalu Cmd+V (teks key biasa juga diterima) |
 | `SSH_KNOWN_HOSTS` | hasil `ssh-keyscan` di langkah 1 |
 
 **Variables** (tab *Variables*):
