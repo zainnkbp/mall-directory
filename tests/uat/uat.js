@@ -414,6 +414,32 @@ async function phoneSelfStart() {
   ok('phone', 'm/?from=<entrance> opens step 2 directly', await step(page, 2));
   errorsOk('phone', page, 'phone lobby sticker');
   await page.context().close();
+  // 5. the site address on a phone opens the phone page; tablets and launched kiosks stay on the kiosk
+  const UA = {
+    iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    android: 'Mozilla/5.0 (Linux; Android 14; SM-A546E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    tablet: 'Mozilla/5.0 (Linux; Android 13; SM-X200) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  };
+  const lands = async (ua, size, url) => {
+    const p = await newPage({ viewport: size, isMobile: ua !== 'tablet', hasTouch: true, userAgent: UA[ua] }, 'phone-redirect-' + ua);
+    await p.goto(BASE + url);
+    await p.waitForFunction(() => { const s = document.querySelector('#scrPick'); return document.body.classList.contains('kiosk') || (s && !s.hidden && s.offsetParent); },
+      null, { timeout: 30000 }).catch(() => {});
+    const r = { path: /\/m\/$/.test(new URL(p.url()).pathname) ? 'm/' : '/',
+      picker: await p.evaluate(() => { const s = document.querySelector('#scrPick'); return !!s && !s.hidden && s.offsetParent !== null; }),
+      osk: await p.evaluate(() => !!document.querySelector('body.kiosk')) };
+    errorsOk('phone', p, 'redirect ' + ua + ' ' + url);
+    await p.context().close();
+    return r;
+  };
+  for (const ua of ['iphone', 'android']) {
+    const r = await lands(ua, { width: 390, height: 844 }, '?lang=id');
+    ok('phone', ua + ' opening the site address lands on m/ with the start picker', r.path === 'm/' && r.picker && !r.osk, JSON.stringify(r));
+  }
+  const tab = await lands('tablet', { width: 1280, height: 800 }, '');
+  ok('phone', 'tablet stays on the kiosk', tab.path === '/' && tab.osk, JSON.stringify(tab));
+  const launched = await lands('iphone', { width: 390, height: 844 }, '?kiosk=' + DIR.kiosks[0].id);
+  ok('phone', 'phone launched with ?kiosk= stays on the kiosk', launched.path === '/' && launched.osk, JSON.stringify(launched));
 }
 
 // ------------------------------------------------------------------ cms
