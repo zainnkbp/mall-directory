@@ -27,6 +27,7 @@ data/.tmp/
 data/.cron.lock
 data/.publish.lock
 tests/wpc/out/
+tests/uat/out/
 *.log
 *.zip
 bsb_directory_cpanel.sql
@@ -39,3 +40,7 @@ yarn-error.log*
 node_modules/
 __pycache__/
 *.pyc
+
+# database dumps carry CMS password hashes: never commit (public repo)
+_handoff/db/*_cpanel.sql
+_handoff/db/*_old.sql

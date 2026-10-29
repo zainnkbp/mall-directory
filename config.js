@@ -8,6 +8,8 @@ window.BSB_CONFIG = {
   //  - LAN   -> 'http://192.168.11.252:8000'  (Android OK; iOS compass needs HTTPS)
   //  - HTTPS -> 'https://xxxx.trycloudflare.com' (cloudflared quick tunnel, see README)
   // It can also be overridden per launch with ?base=<url> on the kiosk URL.
+  // Only used when the page runs on a local address (localhost / LAN IP): on a public domain (hosting, e.g.
+  // https://maps.ewalkpentacitymall.com) the QR always uses that domain, so this file needs no change there.
   PUBLIC_BASE: 'http://192.168.11.252:8000',
 
   // Default kiosk when the URL has no ?kiosk=<id>
@@ -49,7 +51,9 @@ window.BSB_CONFIG = {
   attractLang: 'en',
 
   // ---- CMS runtime (WP-C) ----
-  APP_BUILD: '2026.10.23-1', // bump on every kiosk code deploy -> new Service Worker + shell cache (sw.js?v=APP_BUILD)
+  // bump on every kiosk code deploy -> new Service Worker + shell cache (sw.js?v=APP_BUILD); also set the same value in the
+  // ?v= of the script / stylesheet tags of index.html and m/index.html so a cached page never mixes old and new files
+  APP_BUILD: '2026.10.29-7',
   API_BASE: 'api',          // relative to the app root; without mod_rewrite use 'api/index.php?r='. Kiosk identity: ?kiosk=<id>&key=<token> on the launch URL.
   POLL_SEC: 60,             // version poll / heartbeat interval (±10 s jitter). Status closures apply within ~70 s.
   TELEMETRY_SEC: 60,        // telemetry flush interval (also flushes at >= 50 queued events)

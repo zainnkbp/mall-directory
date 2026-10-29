@@ -177,6 +177,7 @@ window.BSB = window.BSB || {};
       self.floor = floorId;
       var target = self.camFor(opts.box || self.boxFor(floorId, opts.building), opts.pad);
       if (prev === floorId) return self.flyTo(target, opts.animate === false ? 0 : (opts.duration || 0.9));
+      if (self._tw) self._tw.kill(); // a camera flight still running on the previous floor would drag this floor's camera back
       self.cam = target;
       Object.keys(self.layers).forEach(function (k) { if (k !== floorId && k !== prev) self.layers[k].outer.style.visibility = 'hidden'; });
       L.outer.style.visibility = 'visible';

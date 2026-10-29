@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#F5F1EB">
   <title>Navigasi · e-Walk & Pentacity</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="../css/base.css?v=3d3">
-  <link rel="stylesheet" href="../css/phone.css?v=3d3">
-  <script src="../config.js"></script>
+  <link rel="stylesheet" href="../css/base.css?v=2026.10.29-7">
+  <link rel="stylesheet" href="../css/phone.css?v=2026.10.29-7">
+  <script src="../config.js?v=2026.10.29-7"></script>
 </head>
 <body class="phone">
   <header class="ph-head">
@@ -16,6 +16,31 @@
       <button class="ph-lang" id="langBtn" type="button">EN</button></div>
     <div class="ph-dest" id="dest"></div>
   </header>
+
+  <!-- PICK (opened without a kiosk QR): 1 = where are you, 2 = where to -->
+  <section class="scr" id="scrPick" hidden>
+    <button class="pick-back" id="pickBack" type="button" hidden><span data-icon="chevron-left"></span><span data-i18n="back"></span></button>
+    <div class="pick-step" id="pickStep"></div>
+    <h2 class="pick-t" id="pickTitle"></h2>
+    <p class="pick-sub" id="pickSub"></p>
+    <div class="ph-transit-pref pick-tabs" id="pickTabs" role="tablist">
+      <button type="button" class="ph-tp-btn on" data-ptab="lobby"><span data-icon="door-open"></span><span data-i18n="tabLobby"></span></button>
+      <button type="button" class="ph-tp-btn" data-ptab="store"><span data-icon="building-2"></span><span data-i18n="tabNearStore"></span></button>
+    </div>
+    <label class="pick-search"><span data-icon="search"></span><input id="pickQ" type="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"></label>
+    <div class="pick-fac" id="pickFac"></div>
+    <ol class="pick-list" id="pickList"></ol>
+    <!-- preview of a start point: the visitor checks the map + nearby stores before confirming "I'm here" -->
+    <div class="sheet" id="pickSheet" hidden>
+      <div class="sheet-card pv-card" role="dialog" aria-modal="true" aria-labelledby="pvT">
+        <div class="pv-head"><span class="logo" id="pvIc"></span><div class="pv-ht"><div class="fl-k" id="pvK"></div><div class="pv-t" id="pvT"></div></div></div>
+        <div class="mini pv-map" id="pvMap"></div>
+        <p class="pv-near" id="pvNear"></p>
+        <button class="pbtn primary" id="pvYes" type="button"><span data-icon="check"></span><span data-i18n="previewYes"></span></button>
+        <button class="pbtn ghost" id="pvNo" type="button" data-i18n="previewNo"></button>
+      </div>
+    </div>
+  </section>
 
   <!-- START -->
   <section class="scr" id="scrStart">
@@ -86,18 +111,20 @@
     </div>
   </section>
 
-  <section class="scr" id="scrErr" hidden><div class="done"><h2 id="errTxt"></h2></div></section>
+  <section class="scr" id="scrErr" hidden><div class="done"><h2 id="errTxt"></h2>
+    <button class="pbtn ghost" id="errPick" type="button" hidden data-i18n="changeDest"></button></div></section>
 
   <script src="../assets/vendor/gsap.min.js"></script>
-  <script src="../js/icons.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/data.js"></script>
-  <script src="../js/route.js"></script>
-  <script src="../js/map.js"></script>
+  <script src="../js/icons.js?v=2026.10.29-7"></script>
+  <script src="../js/i18n.js?v=2026.10.29-7"></script>
+  <script src="../js/data.js?v=2026.10.29-7"></script>
+  <script src="../js/search.js?v=2026.10.29-7"></script>
+  <script src="../js/route.js?v=2026.10.29-7"></script>
+  <script src="../js/map.js?v=2026.10.29-7"></script>
   <script src="../assets/vendor/three.min.js"></script>
-  <script src="../js/scene3d.js"></script>
-  <script src="../js/map3d.js"></script>
-  <script src="../js/phone.js"></script>
+  <script src="../js/scene3d.js?v=2026.10.29-7"></script>
+  <script src="../js/map3d.js?v=2026.10.29-7"></script>
+  <script src="../js/phone.js?v=2026.10.29-7"></script>
   <script>
     (function () {
       var c = window.BSB_CONFIG || {};

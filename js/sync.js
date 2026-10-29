@@ -16,7 +16,7 @@ window.BSB = window.BSB || {};
 (function (B) {
   var cfg = window.BSB_CONFIG || {};
   var Q = new URLSearchParams(location.search);
-  var POLL = Math.max(5, +(cfg.devMode && Q.get('poll')) || cfg.POLL_SEC || 60);
+  var POLL = Math.max(5, +(B.devMode && Q.get('poll')) || cfg.POLL_SEC || 60);
   var MEDIA_CACHE = 'bsb-media-v1';
   var hooks = {}, timer = 0, t0 = Date.now();
   var S = B.syncState = { started: false, lastPoll: 0, lastOk: 0, reachable: null, mode: null, versions: null, pendingReload: null,

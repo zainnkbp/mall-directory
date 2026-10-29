@@ -102,3 +102,57 @@ body.phone { background: var(--bg); min-height: 100%; touch-action: pan-y; paddi
 .done-logo { width: 96px; height: 96px; margin: 6px auto 24px; border-radius: 24px; background: #fff; box-shadow: var(--shadow-2); display: grid; place-items: center; overflow: hidden; }
 .done-logo img { width: 84%; height: 84%; object-fit: contain; }
 .done .pbtn + .pbtn { margin-top: 10px; }
+
+/* picker (opened without a kiosk QR): where are you -> where to */
+.pick-step { font-size: 12px; font-weight: 800; letter-spacing: var(--kicker-ls); text-transform: uppercase; color: var(--accent); }
+.pick-t { font-size: 26px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: 4px 0 0; }
+.pick-sub { font-size: 14px; color: var(--muted); font-weight: 600; margin: 6px 0 14px; line-height: 1.4; text-wrap: balance; }
+.pick-tabs { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.pick-tabs[hidden] { display: none; }
+.pick-search { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 14px; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow-1), inset 0 0 0 1px var(--line); color: var(--muted); font-size: 18px; }
+.pick-search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; font-weight: 600; color: var(--ink); }
+.pick-fac-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.pick-fac-btn { flex: none; display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 14px; font-weight: 700; color: var(--ink); }
+.pick-fac-btn svg { font-size: 18px; color: var(--accent); }
+.pick-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.pick-list li.fl { font-size: 12px; letter-spacing: var(--kicker-ls); text-transform: uppercase; font-weight: 800; color: var(--muted); padding: 14px 6px 4px; }
+.pick-row { width: 100%; min-height: 60px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 16px; text-align: left; color: var(--ink); }
+.pick-row:active { background: var(--bg-2); }
+.pick-row .logo { width: 44px; height: 44px; border-radius: 12px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); display: grid; place-items: center; overflow: hidden; flex: none; font-size: 20px; color: var(--ink-2); }
+.pick-row .logo img { width: 84%; height: 84%; object-fit: contain; }
+.pick-row .logo .ini { font-weight: 800; font-size: 14px; }
+.pick-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pick-row-t b { font-size: 16px; font-weight: 800; line-height: 1.25; }
+.pick-row-t small { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.pick-row > svg { color: var(--muted); flex: none; }
+.pick-empty { padding: 24px 8px; text-align: center; color: var(--muted); font-weight: 600; }
+.pick-chg { display: flex; gap: 8px; flex-wrap: wrap; }
+.pick-chg button { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2); }
+#errPick { margin-top: 18px; }
+.pick-back { display: inline-flex; align-items: center; gap: 4px; height: 36px; margin: -4px 0 8px -6px; padding: 0 8px; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.pick-back[hidden] { display: none; }
+
+/* start point preview (bottom sheet on phones, centred dialog on wider screens) */
+.pv-card { text-align: left; gap: 12px; max-height: 100dvh; overflow-y: auto; }
+.pv-head { display: flex; align-items: center; gap: 12px; }
+.pv-head .logo { width: 48px; height: 48px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); display: grid; place-items: center; overflow: hidden; flex: none; font-size: 22px; color: var(--ink-2); }
+.pv-head .logo img { width: 84%; height: 84%; object-fit: contain; }
+.pv-head .logo .ini { font-weight: 800; font-size: 14px; }
+.pv-ht { min-width: 0; }
+.pv-t { font-size: 21px; font-weight: 800; line-height: 1.2; margin-top: 2px; text-wrap: balance; }
+.pv-map { height: min(44vh, 340px); min-height: 200px; margin-top: 0; }
+.pv-near { margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink-2); font-weight: 600; text-wrap: pretty; }
+.pv-near b { color: var(--ink); }
+
+/* wider screens (tablet / desktop browser): keep the phone layout readable instead of stretching it */
+@media (min-width: 640px) {
+  .ph-head > *, .scr { max-width: 600px; margin-left: auto; margin-right: auto; }
+  .sheet { align-items: center; justify-content: center; padding: 24px; }
+  .sheet-card { max-width: 520px; border-radius: 28px; padding-bottom: 22px; }
+  .pv-map { height: min(46vh, 380px); }
+}
+/* short landscape phones: smaller map so both buttons stay on screen */
+@media (max-height: 520px) and (orientation: landscape) {
+  .pv-map { height: 46vh; min-height: 150px; }
+  .pv-card .pbtn { height: 48px; }
+}

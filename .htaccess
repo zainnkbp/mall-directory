@@ -15,7 +15,8 @@ Options -Indexes
 </FilesMatch>
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteRule ^(lib|db|tools)(/|$) - [F,L]
+  # same as tools/dev_router.php: server code, internal notes and test fixtures are never public
+  RewriteRule ^(lib|db|tools|_handoff|tests)(/|$) - [F,L]
   RewriteRule (^|/)\. - [F,L]
 </IfModule>
 

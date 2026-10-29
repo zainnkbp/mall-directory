@@ -348,6 +348,8 @@
   function stepIconName(s) {
     if (s.kind === 'arrive') return 'map-pin';
     if (s.kind === 'to-transition') return 'navigation';
+    if (s.kind === 'stairs') return s.dir === 'down' ? 'arrow-down' : 'arrow-up';
+    if (s.kind === 'road') return 'footprints';
     if (s.kind === 'turn') {
       if (s.turn < -30) return 'corner-up-left';
       if (s.turn > 30) return 'corner-up-right';
@@ -565,7 +567,7 @@
     return map.showFloor(leg.floor, { box: legBox(leg, i, P), dir: f.level >= cur ? 'up' : 'down', duration: lite() ? 0.2 : 1.1 }).then(function () {
       map.setConnectors(connectorsFor(leg));
       renderSwitcher();
-      return map.setRoute(leg.floor, leg.pts, { animate: animate, startMarker: i > 0, duration: Math.max(1.3, Math.min(3.2, leg.meters / 45)) });
+      return map.setRoute(leg.floor, leg.pts, { animate: animate, startMarker: i > 0, duration: Math.max(2.5, Math.min(6, leg.meters / 22)) });
     });
   }
   function stripTags(s) { var d = document.createElement('div'); d.innerHTML = s; return d.textContent; }

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embed test · e-Walk website</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #f4f1ec; }
+    header { padding: 14px 16px; background: #1d1a17; color: #fff; font-weight: 700; }
+    main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    /* the embed: full width, tall enough for the phone layout; the page inside scrolls on its own */
+    .bsb-map { width: 100%; height: min(90vh, 900px); border: 0; border-radius: 16px; background: #fff; display: block; }
+  </style>
+</head>
+<body>
+  <!-- Stand-in for the e-Walk website (tests/uat/uat.js "embed" suite). Usage: embed.html?src=<map page URL> -->
+  <header>e-Walk &amp; Pentacity — website (embed test)</header>
+  <main>
+    <p>Peta &amp; navigasi di bawah ini dimuat dari domain peta di dalam iframe.</p>
+    <iframe class="bsb-map" id="bsbMap" title="Peta e-Walk &amp; Pentacity"
+      allow="accelerometer; gyroscope; magnetometer; fullscreen" loading="lazy"></iframe>
+  </main>
+  <script>
+    var src = new URLSearchParams(location.search).get('src') || '../../m/';
+    if (/^(https?:)?\/\//.test(src) || src.charAt(0) === '.' || src.charAt(0) === '/') document.getElementById('bsbMap').src = src;
+  </script>
+</body>
+</html>

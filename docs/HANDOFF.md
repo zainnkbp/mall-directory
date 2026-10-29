@@ -92,5 +92,5 @@ Untuk HP di jaringan yang sama: set `PUBLIC_BASE` di `config.js` (IP LAN atau tu
 - Kiosk lama (tanpa patch) tetap bisa membaca snapshot baru; format edge `[from,to,cost,type,(ruleKey)]`.
 - Folder `data/raw/logos/` (cache logo mentah 71 MB) **tidak disertakan**; diunduh ulang otomatis oleh `build_data.py` bila perlu.
 - Database di paket berisi sedikit data telemetri dari pengujian; hash password admin dev & token kiosk dev ada di DB. **Hapus akun dev dan buat ulang token sebelum produksi.**
-- Naikkan `APP_BUILD` saat deploy agar Service Worker kiosk segera mengambil versi baru.
+- Deploy ke hosting: `docs/DEPLOY.md` (GitHub Actions + SSH, data server di `~/bsb/shared`). Naikkan `APP_BUILD` saat deploy agar kiosk segera mengambil versi baru.
 - Peta 3D (Oktober 2026, `docs/3D.md`): jalankan `db/migrate_2026_10_3d.sql` di DB server (tipe edge `stairs` + tangga GF E-Walk). Koordinat CMS semua lantai sekarang memakai satuan gambar Illustrator (denah tampak atas; GF dan UG digabung dari gambar per gedung); perubahan itu ada di DB, jadi bawa lewat dump DB penuh, bukan `export_cpanel_sql.php`.
