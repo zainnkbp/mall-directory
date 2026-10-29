@@ -69,6 +69,13 @@ function checkPlan(s, d, pref) {
   });
   const last = P.legs[P.legs.length - 1];
   if (last.floor !== D.nodeById[d.node].floor) bad(where, 'ends on ' + last.floor + ', destination is on ' + D.nodeById[d.node].floor);
+  // the outdoor link between the buildings: stairs down, cross the road, stairs up — each its own step, never in wheelchair mode
+  const kinds = [].concat(...P.legs.map(l => l.steps.map(st => st.kind)));
+  if (P.legs.some(l => l.nodes.some(n => D.nodeById[n].outdoor))) {
+    const at = kinds.indexOf('road');
+    if (at < 1 || kinds[at - 1] !== 'stairs' || kinds[at + 1] !== 'stairs') bad(where, 'road crossing steps out of order: ' + kinds.join(','));
+    if (pref === 'accessible') bad(where, 'wheelchair route uses the outdoor stairs');
+  }
 }
 for (const lang of ['id', 'en']) {
   B.lang = lang;

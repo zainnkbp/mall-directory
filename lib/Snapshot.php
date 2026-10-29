@@ -197,7 +197,9 @@ final class Snapshot
         $nodeById = [];
         foreach (Db::all('SELECT id, floor_id, x, y, label FROM graph_nodes ORDER BY id') as $n) {
             if (!isset($floorById[$n['floor_id']])) continue;
-            $nodes[] = ['id' => 'n' . $n['id'], 'floor' => $n['floor_id'], 'x' => self::f($n['x']), 'y' => self::f($n['y'])];
+            $node = ['id' => 'n' . $n['id'], 'floor' => $n['floor_id'], 'x' => self::f($n['x']), 'y' => self::f($n['y'])];
+            if ($n['label'] === 'outdoor') $node['outdoor'] = true;   // jalan di luar gedung (penyeberangan): route.js memberi langkah sendiri
+            $nodes[] = $node;
             $nodeById[(int)$n['id']] = $n;
             if ($n['label'] !== null && str_starts_with((string)$n['label'], 'spur:')) $aux['spurNodes'][] = 'n' . $n['id'];
         }

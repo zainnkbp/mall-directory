@@ -348,6 +348,8 @@
   function stepIconName(s) {
     if (s.kind === 'arrive') return 'map-pin';
     if (s.kind === 'to-transition') return 'navigation';
+    if (s.kind === 'stairs') return s.dir === 'down' ? 'arrow-down' : 'arrow-up';
+    if (s.kind === 'road') return 'footprints';
     if (s.kind === 'turn') {
       if (s.turn < -30) return 'corner-up-left';
       if (s.turn > 30) return 'corner-up-right';

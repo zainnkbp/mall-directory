@@ -308,18 +308,18 @@ window.BSB = window.BSB || {};
     var N = D.nodeById;
 
     // 1. split into walking legs separated by transitions (consecutive transitions are merged: lift chains, through-escalators)
-    var legs = [], cur = { floor: N[p.nodes[0]].floor, nodes: [p.nodes[0]] };
+    var legs = [], cur = { floor: N[p.nodes[0]].floor, nodes: [p.nodes[0]], types: [null] };
     for (var i = 1; i < p.nodes.length; i++) {
       var id = p.nodes[i], t = p.types[i];
-      if ((t === 'walk' || t === 'stairs') && N[id].floor === cur.floor) { cur.nodes.push(id); continue; }
+      if ((t === 'walk' || t === 'stairs') && N[id].floor === cur.floor) { cur.nodes.push(id); cur.types.push(t); continue; }
       var last = legs[legs.length - 1];
       if (cur.nodes.length === 1 && last && last.transition && sameKind(last.transition.type, t)) {
         // chained ride (stacked stops share one node): keep ONE leg, but remember every hop so no floor is hidden
         last.transition.toNode = id; last.transition.hops.push({ type: t, fromNode: p.nodes[i - 1], toNode: id });
-        cur = { floor: N[id].floor, nodes: [id] }; continue;
+        cur = { floor: N[id].floor, nodes: [id], types: [null] }; continue;
       }
       cur.transition = { type: t, fromNode: p.nodes[i - 1], toNode: id, hops: [{ type: t, fromNode: p.nodes[i - 1], toNode: id }] };
-      legs.push(cur); cur = { floor: N[id].floor, nodes: [id] };
+      legs.push(cur); cur = { floor: N[id].floor, nodes: [id], types: [null] };
     }
     legs.push(cur);
 
@@ -451,69 +451,115 @@ window.BSB = window.BSB || {};
       else steps.push({ floor: floorId, pts: [pts[0], pts[0]], startM: 0, endM: 0, meters: 0, end: pts[0], text: id ? 'Tujuan ada di sini' : 'Destination is here', kind: 'arrive' });
       return steps;
     }
-    var keep = simplify(pts, 1.2 * m2u);
-    // turn vertices among simplified points
-    var turns = [0];
-    for (var k = 1; k < keep.length - 1; k++) {
-      var a = pts[keep[k - 1]], b = pts[keep[k]], c = pts[keep[k + 1]];
-      var dIn = (leg.cum[keep[k]] - leg.cum[keep[k - 1]]), dOut = (leg.cum[keep[k + 1]] - leg.cum[keep[k]]);
-      var ang = normDeg(heading(b, c) - heading(a, b));
-      if ((Math.abs(ang) >= 35 && dIn >= 2.5 && dOut >= 2.5) || Math.abs(ang) >= 70) turns.push(keep[k]);
-    }
-    turns.push(pts.length - 1);
-    // drop segments shorter than 2 m (merge into next)
-    var t2 = [turns[0]];
-    for (k = 1; k < turns.length; k++) {
-      if (k < turns.length - 1 && leg.cum[turns[k]] - leg.cum[t2[t2.length - 1]] < 2) continue;
-      t2.push(turns[k]);
-    }
-    turns = t2;
     var excl = {}; if (dstTenant) excl[dstTenant.id] = true;
     if (srcOrigin && srcOrigin.id) excl[srcOrigin.id] = true;
-    var usedLm = {};
-    for (k = 1; k < turns.length; k++) {
-      var i0 = turns[k - 1], i1 = turns[k], seg = pts.slice(i0, i1 + 1), meters = leg.cum[i1] - leg.cum[i0];
-      var isLast = k === turns.length - 1, txt = '';
-      var lmEx = Object.assign({}, excl, usedLm);
-      var passing = this.landmarksAlong(floorId, seg, 7, lmEx);
-      passing.forEach(function (t) { usedLm[t.id] = true; });
-      var mtxt = (id ? '±' : '~') + roundM(meters) + '\u00A0m';
-      if (k === 1 && li === 0) {
-        if (srcOrigin && srcOrigin.name && srcOrigin.id !== 'kiosk') {
-          txt = id ? 'Dari ' + srcOrigin.name + ', jalan ' + mtxt : 'From ' + srcOrigin.name + ', walk ' + mtxt;
-        } else {
-          txt = id ? 'Dari titik “Anda di sini”, jalan ' + mtxt : 'From “You are here”, walk ' + mtxt;
-        }
-      }
-      else if (k === 1) txt = id ? 'Setelah tiba, jalan ' + mtxt : 'After arriving, walk ' + mtxt;
-      else txt = id ? 'Jalan lurus ' + mtxt : 'Go straight ' + mtxt;
-      if (passing.length) txt += (id ? ' melewati ' : ' past ') + passing.map(function (t) { return t.brand || t.name; }).join(id ? ' dan ' : ' and ');
-      var kind = 'walk', turnDir = 0;
-      if (!isLast) {
-        var a2 = pts[Math.max(i0, i1 - 1)], b2 = pts[i1], c2 = pts[Math.min(pts.length - 1, i1 + 1)];
-        // use longer baselines for stable angles
-        a2 = pts[i0]; c2 = pts[turns[k + 1]];
-        var ang2 = normDeg(heading(a2, b2) - heading(b2, c2)) * -1;
-        turnDir = ang2;
-        var lm = this.landmarkNear(floorId, b2, 8, Object.assign({}, excl, usedLm));
-        if (lm) usedLm[lm.id] = true;
-        txt += ', ' + turnWord(ang2, id) + (lm ? (id ? ' dekat ' : ' near ') + (lm.brand || lm.name) : '');
-        kind = 'turn';
-      } else if (li < nLegs - 1 && leg.transition) {
+    var usedLm = {}, N = this.D.nodeById, types = leg.types || [];
+    // end of the leg: "… to the escalator" / "… X is ahead of you"
+    function endText() {
+      if (li < nLegs - 1 && leg.transition) {
         var am = leg.transition.amenity;
         var target = am ? B.amenityName(am).replace(/ · .*$/, '') : (id ? 'eskalator' : 'the escalator');
         if (leg.transition.type === 'lift') target = id ? 'lift' : 'the lift';
         else if (leg.transition.type === 'crossing') target = id ? 'jembatan penghubung' : 'the link bridge';
         else if (leg.transition.type === 'stairs') target = id ? 'tangga penghubung' : 'the connecting stairs';
         else if (leg.transition.type.indexOf('escalator') === 0) target = id ? 'eskalator' : 'the escalator';
-        txt += (id ? ' sampai ' : ' to ') + target;
-        kind = 'to-transition';
-      } else {
-        txt += id ? '. ' + (dstTenant ? dstTenant.name : 'Tujuan') + ' ada di depan Anda' : '. ' + (dstTenant ? dstTenant.name : 'Destination') + ' is ahead of you';
-        kind = 'arrive';
+        return { txt: (id ? ' sampai ' : ' to ') + target, kind: 'to-transition' };
       }
-      steps.push({ floor: floorId, pts: seg, startM: leg.cum[i0], endM: leg.cum[i1], meters: meters, end: pts[i1],
-        text: txt, kind: kind, turn: turnDir, landmark: passing[0] || null });
+      return { txt: id ? '. ' + (dstTenant ? dstTenant.name : 'Tujuan') + ' ada di depan Anda' : '. ' + (dstTenant ? dstTenant.name : 'Destination') + ' is ahead of you', kind: 'arrive' };
+    }
+    function outdoor(p) { return !!(N[p.node] || {}).outdoor; }
+    // Stairs and road crossings inside a walking leg (the outdoor link between the buildings) are steps of their own, so
+    // the visitor reads "Take the stairs down by H&M" → "Cross the road to E-Walk" → "Take the stairs up by …" instead of
+    // one long "Go straight". Road nodes carry `outdoor` (graph node label 'outdoor' in the CMS).
+    var runs = [], r0 = 0;
+    for (var j = 1; j < pts.length; j++) {
+      var sp = types[j] === 'stairs' ? 'stairs' : outdoor(pts[j - 1]) && outdoor(pts[j]) ? 'road' : null;
+      if (!sp) continue;
+      var lastRun = runs[runs.length - 1];
+      if (sp === 'road' && j - 1 === r0 && lastRun && lastRun.sp === 'road') { lastRun.i1 = j; r0 = j; continue; }
+      if (j - 1 > r0) runs.push({ i0: r0, i1: j - 1 });
+      runs.push({ i0: j - 1, i1: j, sp: sp }); r0 = j;
+    }
+    if (pts.length - 1 > r0) runs.push({ i0: r0, i1: pts.length - 1 });
+
+    runs.forEach(function (run, ri) {
+      var next = runs[ri + 1] || null;
+      if (!run.sp) return walkRun(run.i0, run.i1, ri === 0, next);
+      var meters = leg.cum[run.i1] - leg.cum[run.i0], txt, dir = 'same', lm = null;
+      var mtxt = (id ? '±' : '~') + roundM(meters) + ' m';
+      if (run.sp === 'stairs') {
+        var outA = outdoor(pts[run.i0]), outB = outdoor(pts[run.i1]);
+        dir = outB && !outA ? 'down' : outA && !outB ? 'up' : 'same';
+        lm = self.landmarkNear(floorId, outA && !outB ? pts[run.i1] : pts[run.i0], 45, {});
+        var by = lm ? (id ? ' di dekat ' : ' by ') + (lm.brand || lm.name) : '';
+        txt = (dir === 'down' ? (id ? 'Turun tangga' : 'Take the stairs down') : dir === 'up' ? (id ? 'Naik tangga' : 'Take the stairs up')
+          : (id ? 'Lewati tangga' : 'Take the stairs')) + by;
+      } else {
+        // the building across the road: the shop nearest to where the crossing ends vs where it starts
+        var far = self.landmarkNear(floorId, pts[Math.min(pts.length - 1, run.i1 + 2)], 60, {});
+        var near = self.landmarkNear(floorId, pts[Math.max(0, run.i0 - 2)], 60, {});
+        var to = far && far.building && (!near || near.building !== far.building) ? B.buildingName(far.building) : '';
+        txt = id ? 'Seberangi jalan ' + mtxt + (to ? ' ke ' + to : '') : 'Cross the road (' + mtxt + ')' + (to ? ' to ' + to : '');
+      }
+      if (!next) txt += endText().txt;
+      steps.push({ floor: floorId, pts: pts.slice(run.i0, run.i1 + 1), startM: leg.cum[run.i0], endM: leg.cum[run.i1], meters: meters,
+        end: pts[run.i1], text: txt, kind: run.sp, dir: dir, turn: 0, landmark: lm });
+    });
+
+    function walkRun(r0, r1, first, next) {
+      var keep = simplify(pts.slice(r0, r1 + 1), 1.2 * m2u).map(function (x) { return x + r0; });
+      // turn vertices among simplified points
+      var turns = [r0];
+      for (var k = 1; k < keep.length - 1; k++) {
+        var a = pts[keep[k - 1]], b = pts[keep[k]], c = pts[keep[k + 1]];
+        var dIn = (leg.cum[keep[k]] - leg.cum[keep[k - 1]]), dOut = (leg.cum[keep[k + 1]] - leg.cum[keep[k]]);
+        var ang = normDeg(heading(b, c) - heading(a, b));
+        if ((Math.abs(ang) >= 35 && dIn >= 2.5 && dOut >= 2.5) || Math.abs(ang) >= 70) turns.push(keep[k]);
+      }
+      turns.push(r1);
+      // drop segments shorter than 2 m (merge into next)
+      var t2 = [turns[0]];
+      for (k = 1; k < turns.length; k++) {
+        if (k < turns.length - 1 && leg.cum[turns[k]] - leg.cum[t2[t2.length - 1]] < 2) continue;
+        t2.push(turns[k]);
+      }
+      turns = t2;
+      for (k = 1; k < turns.length; k++) {
+        var i0 = turns[k - 1], i1 = turns[k], seg = pts.slice(i0, i1 + 1), meters = leg.cum[i1] - leg.cum[i0];
+        var isLast = k === turns.length - 1, txt = '';
+        var lmEx = Object.assign({}, excl, usedLm);
+        var passing = self.landmarksAlong(floorId, seg, 7, lmEx);
+        passing.forEach(function (t) { usedLm[t.id] = true; });
+        var mtxt = (id ? '±' : '~') + roundM(meters) + ' m';
+        if (k === 1 && li === 0 && first) {
+          if (srcOrigin && srcOrigin.name && srcOrigin.id !== 'kiosk') {
+            txt = id ? 'Dari ' + srcOrigin.name + ', jalan ' + mtxt : 'From ' + srcOrigin.name + ', walk ' + mtxt;
+          } else {
+            txt = id ? 'Dari titik “Anda di sini”, jalan ' + mtxt : 'From “You are here”, walk ' + mtxt;
+          }
+        }
+        else if (k === 1 && first) txt = id ? 'Setelah tiba, jalan ' + mtxt : 'After arriving, walk ' + mtxt;
+        else if (k === 1) txt = id ? 'Lanjut jalan ' + mtxt : 'Continue ' + mtxt;
+        else txt = id ? 'Jalan lurus ' + mtxt : 'Go straight ' + mtxt;
+        if (passing.length) txt += (id ? ' melewati ' : ' past ') + passing.map(function (t) { return t.brand || t.name; }).join(id ? ' dan ' : ' and ');
+        var kind = 'walk', turnDir = 0;
+        if (!isLast) {
+          // use longer baselines for stable angles
+          var a2 = pts[i0], b2 = pts[i1], c2 = pts[turns[k + 1]];
+          var ang2 = normDeg(heading(a2, b2) - heading(b2, c2)) * -1;
+          turnDir = ang2;
+          var lm = self.landmarkNear(floorId, b2, 8, Object.assign({}, excl, usedLm));
+          if (lm) usedLm[lm.id] = true;
+          txt += ', ' + turnWord(ang2, id) + (lm ? (id ? ' dekat ' : ' near ') + (lm.brand || lm.name) : '');
+          kind = 'turn';
+        } else if (next) {
+          txt += next.sp === 'stairs' ? (id ? ' sampai tangga' : ' to the stairs') : (id ? ' sampai tepi jalan' : ' to the road');
+        } else {
+          var e = endText(); txt += e.txt; kind = e.kind;
+        }
+        steps.push({ floor: floorId, pts: seg, startM: leg.cum[i0], endM: leg.cum[i1], meters: meters, end: pts[i1],
+          text: txt, kind: kind, turn: turnDir, landmark: passing[0] || null });
+      }
     }
     if (leg.transition) {
       var last = pts[pts.length - 1];
