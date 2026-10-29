@@ -1,9 +1,9 @@
 {
     "directory": {
-        "version": "D0064-202610291301",
-        "sha256": "14f54c2214b430647152b0351c42f999686204c8f30719ae9c2e92a777541f96",
-        "url": "data/directory.json?v=D0064-202610291301",
-        "publishedAt": "2026-10-29T13:01:28+08:00"
+        "version": "D0065-202610291313",
+        "sha256": "c7914cf6ea22a3708f29c1d1cca204ae6583bd0bc20fc8f675fe1e0e346c6e1f",
+        "url": "data/directory.json?v=D0065-202610291313",
+        "publishedAt": "2026-10-29T13:13:56+08:00"
     },
     "promos": {
         "version": "P0007-202610040457",
